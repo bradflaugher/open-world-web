@@ -383,6 +383,7 @@ function handleResize() {
   const w = Math.max(1, Math.round(rect.width || window.innerWidth));
   const h = Math.max(1, Math.round(rect.height || window.innerHeight));
   renderer.resize(w, h, window.devicePixelRatio);
+  toastEl.style.top = `${Math.round(rect.top + renderer.horizonH * renderer.scale + 12)}px`;
 }
 window.addEventListener('resize', handleResize);
 handleResize();
