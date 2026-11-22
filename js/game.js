@@ -143,11 +143,14 @@ export class Game {
   }
 
   newWorld(seed = ((Math.floor(Math.random() * 65535) + 1) & 0xffff), carryLegacy = false) {
-    const oldCairns = carryLegacy
-      ? this.world.cairns.slice(-MAX_OLD_CAIRNS).map((c) => ({
+    const newCairns = carryLegacy
+      ? this.world.cairns.map((c) => ({
         dx: Math.max(-120, Math.min(120, wrapDelta(this.world.start.x, c.x))),
         dy: Math.max(-120, Math.min(120, wrapDelta(this.world.start.y, c.y))),
       }))
+      : [];
+    const oldCairns = carryLegacy
+      ? [...this.world.oldCairns, ...newCairns].slice(-MAX_OLD_CAIRNS)
       : [];
     const nextStars = carryLegacy ? this.stars : 3;
     const nextNum = carryLegacy ? this.worldNumber + 1 : 1;
@@ -572,8 +575,7 @@ export class Game {
     if (mag > 0.12) {
       const nx = mx / Math.max(1, mag);
       const ny = my / Math.max(1, mag);
-      // Auto-sprint when pushing thumbstick all the way to the rim!
-      const sprinting = run || mag > 0.82;
+      const sprinting = run;
       const underFlags = this.world.flagsAt(Math.floor(this.player.x), Math.floor(this.player.y));
       const slowMul = (underFlags & MTF.SLOW) ? 0.62 : 1;
       const spd = (sprinting ? RUN_SPEED : WALK_SPEED) * Math.min(1, mag) * slowMul;

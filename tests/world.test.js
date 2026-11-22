@@ -130,4 +130,9 @@ test('serialization round-trips state and Heart carries cairns & stars to next w
   assert.equal(restored.worldNumber, 2);
   assert.equal(restored.stars, 9);
   assert.equal(restored.world.oldCairns.length, 1);
+
+  // Ancient cairns persist across multiple rebirths
+  restored.newWorld(9999, true);
+  assert.equal(restored.worldNumber, 3);
+  assert.equal(restored.world.oldCairns.length, 1);
 });

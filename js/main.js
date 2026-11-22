@@ -255,6 +255,17 @@ window.addEventListener('keyup', (e) => {
   keys.delete(e.key.toLowerCase());
 });
 
+window.addEventListener('blur', () => {
+  keys.clear();
+  stick = null;
+  stickEl.hidden = true;
+  stickKnob.style.transform = '';
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) keys.clear();
+});
+
 // Touch / pointer floating joystick & tap-to-walk on the canvas
 let stick = null; // { id, x0, y0, mx, my, moved }
 
@@ -341,9 +352,13 @@ function frame(now) {
   const dt = Math.min(0.05, (now - lastTs) / 1000);
   lastTs = now;
 
-  const input = started && mapModal.hidden ? readInput() : { mx: 0, my: 0, run: false };
-  game.update(dt, input);
-  sound.update(dt, game.currentBiome(), game.litBeaconCount);
+  const playing = started && mapModal.hidden;
+  if (playing) {
+    game.update(dt, readInput());
+    sound.update(dt, game.currentBiome(), game.litBeaconCount);
+  } else {
+    game.time += dt;
+  }
 
   for (const ev of game.drainEvents()) {
     sound.handleEvent(ev);
@@ -360,12 +375,13 @@ function frame(now) {
       saveGame(game);
       showToast(`★ Star ${ev.stars} rose into the sky`);
     } else if (ev.type === 'heart-reached') {
-      saveGame(game);
       showToast('The world dissolves into a new dawn…', 3000);
+    } else if (ev.type === 'world-reset') {
+      saveGame(game);
     }
   }
 
-  if (started) {
+  if (playing) {
     updateHud();
     saveAccum += dt;
     if (saveAccum >= 12) {
