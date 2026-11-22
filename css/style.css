@@ -1,10 +1,48 @@
 :root {
-  --ink: #f6f1e3;
-  --ink-soft: rgba(246, 241, 227, 0.72);
-  --glass: rgba(20, 27, 42, 0.68);
-  --glass-border: rgba(255, 244, 214, 0.24);
-  --gold: #ffd978;
-  --flame: #ff9436;
+  /* Game Boy Color (CGB) cartridge UI palette */
+  --gb-bg: #1e2636;
+  --gb-bg-hi: #2d374c;
+  --gb-frame: #f2ecd8;
+  --gb-outline: #101520;
+  --gb-ink: #f6f1dc;
+  --gb-ink-soft: #c5c0ac;
+  --gb-gold: #f8d068;
+  --gb-flame: #e07828;
+  --gb-flame-dk: #9e4818;
+  --gb-parchment: #ece4ce;
+  --gb-parchment-ink: #1b2230;
+
+  /* Pixel-art SVG icon tokens (CGB) */
+  --px-k: #101520;
+  --px-l: #f6f1dc;
+  --px-g: #f8d068;
+  --px-o: #e07828;
+  --px-s: #98a6b8;
+  --px-d: #4b586e;
+  --px-c: #6e84a3;
+}
+
+/* Authentic 4-shade DMG Game Boy Green palette when GB mode is active */
+body.dmg {
+  --gb-bg: #0f380f;
+  --gb-bg-hi: #306230;
+  --gb-frame: #e0f8d0;
+  --gb-outline: #081820;
+  --gb-ink: #e0f8d0;
+  --gb-ink-soft: #88c070;
+  --gb-gold: #e0f8d0;
+  --gb-flame: #88c070;
+  --gb-flame-dk: #346856;
+  --gb-parchment: #e0f8d0;
+  --gb-parchment-ink: #081820;
+
+  --px-k: #081820;
+  --px-l: #e0f8d0;
+  --px-g: #e0f8d0;
+  --px-o: #88c070;
+  --px-s: #88c070;
+  --px-d: #346856;
+  --px-c: #88c070;
 }
 
 * {
@@ -17,9 +55,9 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #182232;
-  color: var(--ink);
-  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, system-ui, sans-serif;
+  background: var(--gb-outline);
+  color: var(--gb-ink);
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
@@ -32,6 +70,22 @@ html, body {
   width: 100%;
   height: 100%;
   cursor: pointer;
+}
+
+.px-icon {
+  display: block;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+/* Shared crisp GBC pixel-box look */
+.embers, .beacons, .stars-pill, .hbtn, .item-btn {
+  background: var(--gb-bg);
+  border: 2px solid var(--gb-frame);
+  border-radius: 2px;
+  outline: 2px solid var(--gb-outline);
+  box-shadow: 0 3px 0 2px var(--gb-outline);
+  color: var(--gb-ink);
 }
 
 /* Top HUD ------------------------------------------------------------------ */
@@ -60,81 +114,65 @@ html, body {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(6px);
+  height: 30px;
+  padding: 0 7px;
   font: 700 12px/1 ui-monospace, "SF Mono", Menlo, monospace;
-}
-
-.ember {
-  width: 10px;
-  height: 13px;
-  border-radius: 50% 50% 45% 45% / 65% 65% 35% 35%;
-  background: rgba(255, 255, 255, 0.2);
-  transition: background 0.25s, transform 0.25s;
-}
-.ember.on {
-  background: radial-gradient(circle at 50% 60%, #fff9d6 15%, #ff9436 85%);
-  box-shadow: 0 0 8px rgba(255, 160, 60, 0.7);
-}
-
-.bdot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-}
-.bdot.lit {
-  background: #ffe999;
-  border-color: #ff9436;
-  box-shadow: 0 0 8px rgba(255, 214, 110, 0.9);
+  letter-spacing: 0.04em;
 }
 
 .stars-pill {
-  color: #fff4c8;
+  color: var(--gb-gold);
   white-space: nowrap;
+  gap: 5px;
+}
+
+.hbtn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font: 800 12px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.hbtn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 2px var(--gb-outline);
+}
+.hbtn.on {
+  background: var(--gb-bg-hi);
+  border-color: var(--gb-gold);
+  color: var(--gb-gold);
+}
+.hbtn.muted {
+  opacity: 0.65;
 }
 
 @media (max-width: 460px) {
   #hud { padding: calc(env(safe-area-inset-top) + 8px) 8px 0; }
-  .hud-left, .hud-right { gap: 5px; }
-  .embers, .beacons, .stars-pill { padding: 4px 7px; font-size: 11px; }
-  .hbtn { width: 34px; height: 34px; border-radius: 10px; font-size: 12px; }
+  .hud-left, .hud-right { gap: 6px; }
+  .embers, .beacons, .stars-pill {
+    height: 26px;
+    padding: 0 5px;
+    gap: 3px;
+    font-size: 11px;
+  }
+  .hbtn { width: 30px; height: 30px; font-size: 11px; }
 }
 
-.hbtn {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  border: 1px solid var(--glass-border);
-  background: var(--glass);
-  color: var(--ink);
-  backdrop-filter: blur(6px);
-  display: grid;
-  place-items: center;
-  font: 700 13px ui-monospace, "SF Mono", Menlo, monospace;
-  cursor: pointer;
-}
-.hbtn:active { transform: scale(0.94); }
-.hbtn.on {
-  border-color: var(--gold);
-  color: var(--gold);
-}
-
-/* Floating Touch Thumbstick ------------------------------------------------ */
+/* Floating Touch Thumbstick (GB pixel reticle) ----------------------------- */
 
 #stick {
   position: fixed;
   z-index: 12;
-  width: 112px;
-  height: 112px;
-  margin: -56px 0 0 -56px;
+  width: 108px;
+  height: 108px;
+  margin: -54px 0 0 -54px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 246, 214, 0.42);
-  background: rgba(20, 27, 42, 0.28);
+  border: 2px solid var(--gb-frame);
+  outline: 2px solid var(--gb-outline);
+  background: rgba(16, 21, 32, 0.28);
   pointer-events: none;
 }
 
@@ -142,15 +180,17 @@ html, body {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 48px;
-  height: 48px;
-  margin: -24px 0 0 -24px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, rgba(255, 248, 224, 0.92), rgba(255, 217, 120, 0.65));
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  width: 42px;
+  height: 42px;
+  margin: -21px 0 0 -21px;
+  border-radius: 4px;
+  border: 2px solid var(--gb-frame);
+  outline: 2px solid var(--gb-outline);
+  background: var(--gb-bg-hi);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.18), 0 3px 0 var(--gb-outline);
 }
 
-/* Bottom Controls (Kid-friendly Action Button + Item Bar) ------------------ */
+/* Bottom Controls (GB Inventory Slots + Tactile A-Button) ------------------ */
 
 #controls {
   position: fixed;
@@ -161,86 +201,100 @@ html, body {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  padding: 0 18px calc(env(safe-area-inset-bottom) + 18px);
+  padding: 0 16px calc(env(safe-area-inset-bottom) + 16px);
   pointer-events: none;
 }
 
 .item-bar {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   pointer-events: auto;
 }
 
 .item-btn {
   width: 52px;
   height: 52px;
-  border-radius: 16px;
-  border: 2px solid var(--glass-border);
-  background: var(--glass);
-  color: var(--ink);
-  backdrop-filter: blur(6px);
+  padding: 4px 2px 3px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  font-size: 20px;
+  gap: 3px;
   cursor: pointer;
-  transition: transform 0.12s, border-color 0.15s, background 0.15s;
 }
 .item-btn span {
-  font: 700 9px/1 ui-monospace, monospace;
-  letter-spacing: 0.04em;
+  font: 700 9px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  opacity: 0.85;
+  color: var(--gb-ink-soft);
 }
 .item-btn.active {
-  border-color: var(--gold);
-  background: rgba(40, 52, 74, 0.88);
-  box-shadow: 0 0 14px rgba(255, 217, 120, 0.35);
+  background: var(--gb-bg-hi);
+  border-color: var(--gb-gold);
 }
-.item-btn:active { transform: scale(0.93); }
+.item-btn.active span {
+  color: var(--gb-gold);
+}
+.item-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 2px var(--gb-outline);
+}
 
 .act-btn {
   pointer-events: auto;
-  width: 82px;
-  height: 82px;
-  border-radius: 50%;
-  border: 2.5px solid rgba(255, 244, 214, 0.35);
-  background: rgba(24, 34, 52, 0.72);
-  color: var(--ink);
-  backdrop-filter: blur(8px);
+  width: 78px;
+  height: 78px;
+  border-radius: 8px;
+  border: 3px solid var(--gb-frame);
+  outline: 2px solid var(--gb-outline);
+  background: var(--gb-bg);
+  color: var(--gb-ink);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 4px;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
-  transition: transform 0.12s, border-color 0.2s, background 0.2s, box-shadow 0.2s, opacity 0.2s;
-  opacity: 0.45;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.28), 0 4px 0 2px var(--gb-outline);
+  opacity: 0.72;
 }
 .act-btn.ready {
   opacity: 1;
-  border-color: var(--gold);
-  background: radial-gradient(circle at 50% 35%, rgba(255, 178, 72, 0.92), rgba(196, 94, 34, 0.92));
-  box-shadow: 0 0 26px rgba(255, 178, 72, 0.65), 0 8px 20px rgba(0, 0, 0, 0.4);
-  animation: pulse-act 1.6s ease-in-out infinite;
+  border-color: var(--gb-gold);
+  background: var(--gb-flame);
+  color: var(--gb-outline);
+  box-shadow: inset 0 -4px 0 var(--gb-flame-dk), 0 4px 0 2px var(--gb-outline);
+  animation: pulse-act 1.4s steps(2, end) infinite;
 }
-.act-btn:active { transform: scale(0.91); }
-.act-icon { font-size: 26px; line-height: 1; }
+.act-btn.ready .act-label {
+  color: var(--gb-outline);
+}
+.act-btn:active {
+  transform: translateY(3px);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.28), 0 1px 0 2px var(--gb-outline);
+}
+.act-icon {
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
 .act-label {
-  font: 800 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
-  letter-spacing: 0.04em;
+  font: 800 10px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: var(--gb-ink);
 }
 
 @keyframes pulse-act {
-  0%, 100% { box-shadow: 0 0 18px rgba(255, 178, 72, 0.55), 0 8px 20px rgba(0, 0, 0, 0.4); }
-  50% { box-shadow: 0 0 32px rgba(255, 206, 108, 0.92), 0 8px 20px rgba(0, 0, 0, 0.4); }
+  0%, 100% {
+    box-shadow: inset 0 -4px 0 var(--gb-flame-dk), 0 4px 0 2px var(--gb-outline);
+  }
+  50% {
+    box-shadow: inset 0 -4px 0 var(--gb-flame-dk), 0 0 0 4px var(--gb-gold), 0 4px 0 2px var(--gb-outline);
+  }
 }
 
-/* Overlays (Title & Map) --------------------------------------------------- */
+/* Overlays (Title & Map — Classic GBC Dialog Windows) ---------------------- */
 
 .overlay {
   position: fixed;
@@ -249,40 +303,42 @@ html, body {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: radial-gradient(circle at 50% 40%, rgba(20, 28, 44, 0.56), rgba(10, 14, 24, 0.82));
-  backdrop-filter: blur(4px);
+  background: rgba(12, 16, 26, 0.72);
 }
 
 .title-card {
-  width: min(100%, 420px);
-  padding: 32px 26px 26px;
-  border-radius: 22px;
-  background: rgba(20, 27, 42, 0.86);
-  border: 1.5px solid rgba(255, 244, 214, 0.25);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  width: min(100%, 400px);
+  padding: 28px 24px 24px;
+  border-radius: 4px;
+  background: var(--gb-bg);
+  border: 3px solid var(--gb-frame);
+  outline: 3px solid var(--gb-outline);
+  box-shadow: inset 0 0 0 2px var(--gb-outline), 0 6px 0 3px var(--gb-outline);
   text-align: center;
 }
 
 .eyebrow {
   margin: 0 0 8px;
   font: 700 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
-  letter-spacing: 0.2em;
-  color: var(--gold);
+  letter-spacing: 0.18em;
+  color: var(--gb-gold);
 }
 
 .title-card h1 {
   margin: 0;
-  font-size: clamp(32px, 8vw, 44px);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: clamp(28px, 7.5vw, 38px);
   letter-spacing: 0.14em;
-  font-weight: 700;
-  color: #fffaf0;
+  font-weight: 800;
+  color: var(--gb-frame);
+  text-shadow: 0 3px 0 var(--gb-outline);
 }
 
 .tagline {
-  margin: 14px 0 24px;
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--ink-soft);
+  margin: 14px 0 22px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--gb-ink-soft);
 }
 
 .title-actions {
@@ -292,45 +348,56 @@ html, body {
 }
 
 .play-btn {
-  padding: 15px 24px;
-  border-radius: 16px;
-  border: 2px solid #ffe7a8;
-  background: linear-gradient(180deg, #ffae47, #d96b27);
-  color: #181410;
-  font: 800 17px/1 ui-monospace, "SF Mono", Menlo, monospace;
-  letter-spacing: 0.1em;
+  padding: 14px 22px;
+  border-radius: 3px;
+  border: 2px solid var(--gb-gold);
+  outline: 2px solid var(--gb-outline);
+  background: var(--gb-flame);
+  color: var(--gb-outline);
+  font: 800 16px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(255, 148, 54, 0.4);
+  box-shadow: inset 0 -4px 0 var(--gb-flame-dk), 0 4px 0 2px var(--gb-outline);
 }
-.play-btn:active { transform: scale(0.97); }
+.play-btn:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 -1px 0 var(--gb-flame-dk), 0 2px 0 2px var(--gb-outline);
+}
 
 .ghost-btn {
   padding: 11px 18px;
-  border-radius: 12px;
-  border: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--ink-soft);
-  font: 700 13px/1 ui-monospace, monospace;
-  letter-spacing: 0.06em;
+  border-radius: 3px;
+  border: 2px solid var(--gb-frame);
+  outline: 2px solid var(--gb-outline);
+  background: var(--gb-bg-hi);
+  color: var(--gb-ink);
+  font: 700 12px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
+  box-shadow: 0 3px 0 2px var(--gb-outline);
+}
+.ghost-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 2px var(--gb-outline);
 }
 
 .controls-hint {
   margin: 18px 0 0;
-  font: 12px/1.55 ui-monospace, "SF Mono", Menlo, monospace;
-  color: rgba(246, 241, 227, 0.56);
+  font: 11px/1.6 ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--gb-ink-soft);
 }
 
 .map-sheet {
   width: min(100%, 368px);
-  padding: 16px;
-  border-radius: 20px;
-  background: #ece4d0;
-  color: #1c2432;
-  border: 2px solid #2b3548;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+  padding: 14px;
+  border-radius: 4px;
+  background: var(--gb-parchment);
+  color: var(--gb-parchment-ink);
+  border: 3px solid var(--gb-parchment-ink);
+  outline: 3px solid var(--gb-outline);
+  box-shadow: 0 6px 0 3px var(--gb-outline);
   text-align: center;
 }
 
@@ -342,7 +409,7 @@ html, body {
 }
 
 .map-title {
-  font: 800 15px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  font: 800 14px/1 ui-monospace, "SF Mono", Menlo, monospace;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -351,30 +418,35 @@ html, body {
   display: block;
   width: 100%;
   aspect-ratio: 1;
-  border-radius: 12px;
-  border: 2px solid #2b3548;
+  border-radius: 2px;
+  border: 2px solid var(--gb-parchment-ink);
+  image-rendering: pixelated;
 }
 
 .map-legend {
   margin: 10px 0 0;
-  font: 11px/1.4 ui-monospace, monospace;
-  color: #4f5869;
+  font: 11px/1.45 ui-monospace, "SF Mono", Menlo, monospace;
+  color: #465062;
 }
+
+/* GBC Dialog Toast --------------------------------------------------------- */
 
 #toast {
   position: fixed;
   left: 50%;
-  top: calc(env(safe-area-inset-top) + 64px);
+  top: calc(env(safe-area-inset-top) + 52px);
   transform: translateX(-50%);
   z-index: 40;
-  padding: 9px 16px;
-  border-radius: 999px;
-  background: rgba(18, 24, 38, 0.9);
-  border: 1px solid var(--gold);
-  color: #fff9e6;
-  font: 700 13px/1 ui-monospace, monospace;
-  letter-spacing: 0.03em;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  padding: 8px 14px;
+  border-radius: 2px;
+  background: var(--gb-bg);
+  border: 2px solid var(--gb-frame);
+  outline: 2px solid var(--gb-outline);
+  color: var(--gb-gold);
+  font: 700 12px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 0 2px var(--gb-outline);
   pointer-events: none;
   white-space: nowrap;
 }
