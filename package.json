@@ -1,0 +1,16 @@
+{
+  "name": "open-world-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A wordless, procedurally generated wandering game for phone and browser — web port of Open World (Game Boy).",
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "test": "node --test",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "eslint": "^9.39.2",
+    "globals": "^16.0.0"
+  }
+}
