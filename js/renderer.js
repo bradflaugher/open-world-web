@@ -130,12 +130,13 @@ export class Renderer {
     this.canvas.width = Math.round(w * this.dpr);
     this.canvas.height = Math.round(h * this.dpr);
 
-    // Choose scale so scale * dpr is always an exact integer (zero pixel distortion!)
+    // Choose an expansive, zoomed-out scale so the world feels vast on both phones and desktops,
+    // while keeping scale * dpr an exact integer for razor-sharp, distortion-free pixel art.
     const minDim = Math.min(w, h);
-    const targetScale = minDim < 440 ? 2.5 : minDim < 700 ? 3.5 : 4;
+    const targetScale = minDim < 600 ? 1.5 : minDim < 900 ? 2 : 2.5;
     this.scale = Math.max(1, Math.round(targetScale * this.dpr)) / this.dpr;
-    this.vw = Math.max(160, Math.ceil(w / this.scale));
-    this.vh = Math.max(144, Math.ceil(h / this.scale));
+    this.vw = Math.ceil(w / this.scale);
+    this.vh = Math.ceil(h / this.scale);
     this.horizonH = 24; // authentic 24px Game Boy horizon band
 
     this.fb.width = this.vw;
@@ -352,8 +353,10 @@ export class Renderer {
     const wispFrame = (Math.floor(t * 4) & 1) ? SPR.WISP1 : SPR.WISP0;
     const baseCx = Math.floor(baseTx / 24);
     const baseCy = Math.floor(baseTy / 24);
-    for (let wcy = baseCy - 1; wcy <= baseCy + 1; wcy++) {
-      for (let wcx = baseCx - 1; wcx <= baseCx + 1; wcx++) {
+    const chunkRadX = Math.ceil((vw / 32 + 2) / 24);
+    const chunkRadY = Math.ceil(((vh - hh) / 32 + 2) / 24);
+    for (let wcy = baseCy - chunkRadY; wcy <= baseCy + chunkRadY; wcy++) {
+      for (let wcx = baseCx - chunkRadX; wcx <= baseCx + chunkRadX; wcx++) {
         const wisp = game.world.wispInChunk(wcx, wcy);
         if (!wisp) continue;
         const wx = toFbX(wisp.x + 0.5) - 4;
