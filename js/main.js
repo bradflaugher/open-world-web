@@ -71,10 +71,11 @@ const ITEM_META = [
   { id: ITEM.CLOAK, icon: 'cloak', name: 'Cloak' },
 ];
 
-// Hydrate static pixel-art HUD icons once
+// Hydrate static pixel-art HUD icons and saved palette class once before title renders
 $('btn-map').replaceChildren(createPixelIcon('map', 18));
 $('btn-menu').replaceChildren(createPixelIcon('menu', 18));
 $('btn-map-close').replaceChildren(createPixelIcon('close', 16));
+document.body.classList.toggle('dmg', game.palette === 'dmg');
 
 let lastHudSig = '';
 let lastActSig = '';
