@@ -525,24 +525,52 @@ export class Renderer {
       ctx.fillRect(Math.round(px - sz / 2), Math.round(py - sz / 2), sz, sz);
     }
 
-    // Bobbing context prompt above interactable target
+    // Bobbing pixel-art context prompt above interactable target (matches GBC/DMG style)
     const act = game.getContextAction();
     if (act && act.kind !== 'build-cairn') {
-      const ax = toScreenX(act.x + 0.5);
-      const ay = toScreenY(act.y) - 8 + Math.sin(t * 5.2) * 4;
-      ctx.fillStyle = 'rgba(20, 26, 40, 0.88)';
-      ctx.strokeStyle = '#ffe599';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.roundRect(ax - 13, ay - 13, 26, 24, 7);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = '#fff6d6';
-      ctx.font = '700 12px ui-monospace, monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const glyph = act.icon === 'flame' ? '🔥' : act.icon === 'stone' ? '🪨' : act.icon === 'cloak' ? '🪽' : act.icon === 'gift' ? '✦' : '★';
-      ctx.fillText(glyph, ax, ay - 1);
+      const dmg = game.palette === 'dmg';
+      const ax = Math.round(toScreenX(act.x + 0.5));
+      const ay = Math.round(toScreenY(act.y) - 10 + Math.round(Math.sin(t * 5.2) * 2.5));
+      const bw = 20;
+      const bh = 18;
+      const bx = ax - 10;
+      const by = ay - 10;
+      // Outer dark pixel frame + hard drop shadow
+      ctx.fillStyle = dmg ? '#081820' : '#101520';
+      ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+      ctx.fillRect(ax - 2, by + bh + 2, 4, 2);
+      // Inner parchment frame
+      ctx.fillStyle = dmg ? '#e0f8d0' : '#f2ecd8';
+      ctx.fillRect(bx, by, bw, bh);
+      // Dark slate center
+      ctx.fillStyle = dmg ? '#346856' : '#242c3b';
+      ctx.fillRect(bx + 2, by + 2, bw - 4, bh - 4);
+      // Crisp pixel glyph inside
+      const p = 2;
+      const gx = bx + 6;
+      const gy = by + 4;
+      if (act.icon === 'flame') {
+        ctx.fillStyle = dmg ? '#88c070' : '#e07828';
+        ctx.fillRect(gx + p, gy, p * 2, p * 4);
+        ctx.fillRect(gx, gy + p, p * 4, p * 3);
+        ctx.fillStyle = dmg ? '#e0f8d0' : '#f8d068';
+        ctx.fillRect(gx + p, gy + p * 2, p * 2, p * 2);
+      } else if (act.icon === 'stone') {
+        ctx.fillStyle = dmg ? '#88c070' : '#98a6b8';
+        ctx.fillRect(gx, gy + p * 2, p * 4, p * 2);
+        ctx.fillStyle = dmg ? '#e0f8d0' : '#f2ecd8';
+        ctx.fillRect(gx + p, gy + p, p * 2, p);
+      } else if (act.icon === 'cloak') {
+        ctx.fillStyle = dmg ? '#88c070' : '#6e84a3';
+        ctx.fillRect(gx + p, gy, p * 2, p * 4);
+        ctx.fillRect(gx, gy + p * 2, p * 4, p * 2);
+        ctx.fillStyle = dmg ? '#e0f8d0' : '#f2ecd8';
+        ctx.fillRect(gx + p, gy + p, p * 2, p);
+      } else {
+        ctx.fillStyle = dmg ? '#e0f8d0' : '#f8d068';
+        ctx.fillRect(gx + p, gy, p * 2, p * 4);
+        ctx.fillRect(gx, gy + p, p * 4, p * 2);
+      }
     }
 
     // Weather (crisp pixel rain / snow / light fog)

@@ -6,6 +6,7 @@ import { Game } from './game.js';
 import { Renderer } from './renderer.js';
 import { SoundEngine } from './audio.js';
 import { ITEM } from './world.js';
+import { createPixelIcon } from './hud-icons.js';
 
 const SAVE_KEY = 'open_world_web_v1';
 const SOUND_KEY = 'open_world_web_sound';
@@ -65,10 +66,15 @@ function showToast(msg, ms = 2400) {
 // --- HUD & Title UI --------------------------------------------------------
 
 const ITEM_META = [
-  { id: ITEM.LANTERN, icon: '🏮', name: 'Light' },
-  { id: ITEM.STONES, icon: '🪨', name: 'Stones' },
-  { id: ITEM.CLOAK, icon: '🪽', name: 'Cloak' },
+  { id: ITEM.LANTERN, icon: 'lantern', name: 'Light' },
+  { id: ITEM.STONES, icon: 'stones', name: 'Stones' },
+  { id: ITEM.CLOAK, icon: 'cloak', name: 'Cloak' },
 ];
+
+// Hydrate static pixel-art HUD icons once
+$('btn-map').replaceChildren(createPixelIcon('map', 18));
+$('btn-menu').replaceChildren(createPixelIcon('menu', 18));
+$('btn-map-close').replaceChildren(createPixelIcon('close', 16));
 
 let lastHudSig = '';
 let lastActSig = '';
@@ -78,25 +84,28 @@ function updateHud() {
   const sig = `${embersFull}|${game.beaconsLit.join('')}|${game.stars}|${game.items.join('')}|${game.selectedItem}|${game.palette}|${sound.enabled}`;
   if (sig !== lastHudSig) {
     lastHudSig = sig;
+    document.body.classList.toggle('dmg', game.palette === 'dmg');
+
     const embersEl = $('embers');
     embersEl.textContent = '';
     for (let i = 0; i < 4; i++) {
-      const e = document.createElement('span');
-      e.className = 'ember' + (i < embersFull ? ' on' : '');
-      embersEl.append(e);
+      embersEl.append(createPixelIcon(i < embersFull ? 'emberOn' : 'emberOff', 12));
     }
 
     const beaconsEl = $('beacons');
     beaconsEl.textContent = '';
     for (let i = 0; i < 3; i++) {
-      const d = document.createElement('span');
-      d.className = 'bdot' + (game.beaconsLit[i] ? ' lit' : '');
-      beaconsEl.append(d);
+      beaconsEl.append(createPixelIcon(game.beaconsLit[i] ? 'beaconLit' : 'beaconOff', 12));
     }
 
-    $('stars-pill').textContent = `★ ${game.stars}`;
+    const starsEl = $('stars-pill');
+    const starCount = document.createElement('span');
+    starCount.textContent = String(game.stars);
+    starsEl.replaceChildren(createPixelIcon('star', 11), starCount);
+
     $('btn-palette').classList.toggle('on', game.palette === 'dmg');
-    $('btn-sound').style.opacity = sound.enabled ? '1' : '0.45';
+    $('btn-sound').replaceChildren(createPixelIcon(sound.enabled ? 'soundOn' : 'soundOff', 18));
+    $('btn-sound').classList.toggle('muted', !sound.enabled);
     $('btn-sound').setAttribute('aria-pressed', String(sound.enabled));
 
     const bar = $('item-bar');
@@ -107,7 +116,7 @@ function updateHud() {
       btn.type = 'button';
       btn.className = 'item-btn' + (game.selectedItem === m.id ? ' active' : '');
       btn.setAttribute('aria-label', m.name);
-      btn.textContent = m.icon;
+      btn.append(createPixelIcon(m.icon, 24));
       const lbl = document.createElement('span');
       lbl.textContent = m.name;
       btn.append(lbl);
@@ -121,17 +130,19 @@ function updateHud() {
   }
 
   const act = game.getContextAction();
-  const actSig = act ? `${act.kind}|${act.label}` : 'none';
+  const actSig = act ? `${act.kind}|${act.label}` : `none|${game.selectedItem}`;
   if (actSig !== lastActSig) {
     lastActSig = actSig;
     const btn = $('btn-act');
+    const iconEl = $('act-icon');
     if (act) {
       btn.classList.add('ready');
-      $('act-icon').textContent = act.icon === 'flame' ? '🔥' : act.icon === 'stone' ? '🪨' : act.icon === 'cloak' ? '🪽' : act.icon === 'gift' ? '✦' : act.icon === 'star' ? '★' : '✨';
+      const iconName = act.icon === 'flame' ? 'flame' : act.icon === 'stone' ? 'stones' : act.icon === 'cloak' ? 'cloak' : act.icon === 'gift' ? 'gift' : act.icon === 'star' ? 'heart' : 'star';
+      iconEl.replaceChildren(createPixelIcon(iconName, 26));
       $('act-label').textContent = act.label;
     } else {
       btn.classList.remove('ready');
-      $('act-icon').textContent = ITEM_META[game.selectedItem]?.icon || '🏮';
+      iconEl.replaceChildren(createPixelIcon(ITEM_META[game.selectedItem]?.icon || 'lantern', 24));
       $('act-label').textContent = 'Act';
     }
   }
