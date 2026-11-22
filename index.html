@@ -13,9 +13,7 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <canvas id="canvas" aria-label="Open World game canvas"></canvas>
-
-  <!-- Floating HUD -->
+  <!-- Top Game Boy Status Bar (docked above canvas so the horizon is never covered) -->
   <div id="hud" hidden>
     <div class="hud-left">
       <div class="embers" id="embers" aria-label="Warmth"></div>
@@ -29,6 +27,8 @@
       <button class="hbtn" id="btn-menu" type="button" aria-label="Title screen" title="Title screen"></button>
     </div>
   </div>
+
+  <canvas id="canvas" aria-label="Open World game canvas"></canvas>
 
   <!-- Floating virtual thumbstick indicator (appears under thumb on touch drag) -->
   <div id="stick" hidden aria-hidden="true">
