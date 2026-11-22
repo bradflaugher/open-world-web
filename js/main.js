@@ -2,10 +2,10 @@
 // Wires responsive canvas, kid-friendly touch joystick + tap-to-walk,
 // keyboard controls, smart context action button, HUD, Map, and localStorage.
 
-import { Game } from './game.js';
-import { Renderer } from './renderer.js';
-import { SoundEngine } from './audio.js';
-import { ITEM } from './world.js';
+import { Game } from './game.js?v=2';
+import { Renderer } from './renderer.js?v=2';
+import { SoundEngine } from './audio.js?v=2';
+import { ITEM } from './world.js?v=2';
 
 const SAVE_KEY = 'open_world_web_v1';
 const SOUND_KEY = 'open_world_web_sound';
