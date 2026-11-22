@@ -59,6 +59,7 @@ let toastTimer = 0;
 let cutsceneItem = null;
 let cutsceneT = 0;
 let cutsceneOpenedAt = 0;
+let cutscenePrevFocus = null;
 
 function showToast(msg, ms = 2400) {
   toastEl.textContent = msg;
@@ -186,6 +187,7 @@ function openTitle() {
 function showCutscene(item) {
   const meta = ABILITY_CUTSCENES[item];
   if (!meta) return;
+  cutscenePrevFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   cutsceneItem = item;
   cutsceneT = 0;
   cutsceneOpenedAt = performance.now();
@@ -202,6 +204,7 @@ function showCutscene(item) {
   $('cutscene-hint').textContent = meta.hint;
   renderCutsceneFrame(cutsceneCanvas, item, 0, game.palette);
   cutsceneModal.hidden = false;
+  $('btn-cutscene-close').focus({ preventScroll: true });
 }
 
 function closeCutscene(force = false) {
@@ -209,6 +212,10 @@ function closeCutscene(force = false) {
   if (!force && performance.now() - cutsceneOpenedAt < 450) return;
   cutsceneModal.hidden = true;
   cutsceneItem = null;
+  if (cutscenePrevFocus && cutscenePrevFocus.isConnected) {
+    cutscenePrevFocus.focus({ preventScroll: true });
+  }
+  cutscenePrevFocus = null;
 }
 
 function toggleMap(force) {
@@ -282,6 +289,11 @@ actBtn.addEventListener('click', (e) => {
 const keys = new Set();
 window.addEventListener('keydown', (e) => {
   if (!cutsceneModal.hidden) {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      $('btn-cutscene-close').focus({ preventScroll: true });
+      return;
+    }
     if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       if (!e.repeat) closeCutscene(false);
