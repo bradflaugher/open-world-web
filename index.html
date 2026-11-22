@@ -70,6 +70,21 @@
     </div>
   </div>
 
+  <!-- Ability Cutscene Modal -->
+  <div id="cutscene-modal" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="cutscene-title">
+    <div class="cutscene-card">
+      <p class="eyebrow" id="cutscene-eyebrow">NEW ABILITY CLAIMED</p>
+      <div class="cutscene-head">
+        <span id="cutscene-icon" class="cutscene-icon"></span>
+        <h2 id="cutscene-title">STEPPING STONES</h2>
+      </div>
+      <canvas id="cutscene-canvas" width="320" height="160" aria-label="Ability demonstration"></canvas>
+      <p class="cutscene-summary" id="cutscene-summary"></p>
+      <p class="cutscene-hint" id="cutscene-hint"></p>
+      <button class="play-btn cutscene-btn" id="btn-cutscene-close" type="button">Got it!</button>
+    </div>
+  </div>
+
   <div id="toast" hidden role="status" aria-live="polite"></div>
 
   <script type="module" src="js/main.js"></script>
