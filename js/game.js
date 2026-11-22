@@ -382,6 +382,7 @@ export class Game {
     }
     this.sitting = false;
     this.idleSec = 0;
+    this.actCooldown = 0.14;
 
     // Auto-select the appropriate carried item so kids never get stuck switching items.
     if (act.item !== null && this.items[act.item]) {

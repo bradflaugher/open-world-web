@@ -130,9 +130,10 @@ export class Renderer {
     this.canvas.width = Math.round(w * this.dpr);
     this.canvas.height = Math.round(h * this.dpr);
 
-    // Choose crisp integer Game Boy pixel scale (3x on phones, 3x-4x on desktop)
+    // Choose scale so scale * dpr is always an exact integer (zero pixel distortion!)
     const minDim = Math.min(w, h);
-    this.scale = minDim < 440 ? 2.5 : minDim < 700 ? 3.5 : 4;
+    const targetScale = minDim < 440 ? 2.5 : minDim < 700 ? 3.5 : 4;
+    this.scale = Math.max(1, Math.round(targetScale * this.dpr)) / this.dpr;
     this.vw = Math.max(160, Math.ceil(w / this.scale));
     this.vh = Math.max(144, Math.ceil(h / this.scale));
     this.horizonH = 24; // authentic 24px Game Boy horizon band
@@ -163,13 +164,15 @@ export class Renderer {
       const bg = decodeDmgPal(DMG_BGP[p]);
       const o0 = decodeDmgPal(DMG_OBP0[p]);
       const o1 = decodeDmgPal(DMG_OBP1[p]);
-      for (let s = 0; s < 8; s++) this.bgPal[s] = bg;
-      this.objPal[OPAL.PLAYER] = o0;
-      this.objPal[OPAL.BAND] = o0;
-      this.objPal[OPAL.WEATHER] = o1;
-      this.objPal[OPAL.WATCHER] = o1;
-      this.objPal[OPAL.LIGHT] = o1;
-      this.objPal[OPAL.GLOW] = o1;
+      for (let s = 0; s < 8; s++) {
+        for (let c = 0; c < 4; c++) this.bgPal[s][c] = bg[c];
+      }
+      for (const s of [OPAL.PLAYER, OPAL.BAND]) {
+        for (let c = 0; c < 4; c++) this.objPal[s][c] = o0[c];
+      }
+      for (const s of [OPAL.WEATHER, OPAL.WATCHER, OPAL.LIGHT, OPAL.GLOW]) {
+        for (let c = 0; c < 4; c++) this.objPal[s][c] = o1[c];
+      }
       return;
     }
 
