@@ -200,9 +200,26 @@ $('btn-menu').addEventListener('click', () => {
   saveGame(game);
   openTitle();
 });
-$('btn-act').addEventListener('click', () => {
+let actPointerHeld = false;
+const actBtn = $('btn-act');
+actBtn.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
   sound.unlock();
+  actPointerHeld = true;
+  actBtn.setPointerCapture(e.pointerId);
   game.performAction();
+});
+const releaseAct = () => {
+  actPointerHeld = false;
+};
+actBtn.addEventListener('pointerup', releaseAct);
+actBtn.addEventListener('pointercancel', releaseAct);
+actBtn.addEventListener('click', (e) => {
+  // Fallback for synthetic/keyboard clicks when pointerdown didn't fire
+  if (e.detail === 0) {
+    sound.unlock();
+    game.performAction();
+  }
 });
 
 // --- Input: Keyboard + Floating Touch Thumbstick + Tap-to-Walk -------------
@@ -238,8 +255,11 @@ window.addEventListener('keydown', (e) => {
   if (!mapModal.hidden) return;
   if (k === ' ' || k === 'enter' || k === 'z') {
     e.preventDefault();
-    sound.unlock();
-    game.performAction();
+    keys.add(k);
+    if (!e.repeat) {
+      sound.unlock();
+      game.performAction();
+    }
     return;
   }
   if (k === 'tab' || k === 'e' || k === 'q') {
@@ -257,13 +277,17 @@ window.addEventListener('keyup', (e) => {
 
 window.addEventListener('blur', () => {
   keys.clear();
+  actPointerHeld = false;
   stick = null;
   stickEl.hidden = true;
   stickKnob.style.transform = '';
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) keys.clear();
+  if (document.hidden) {
+    keys.clear();
+    actPointerHeld = false;
+  }
 });
 
 // Touch / pointer floating joystick & tap-to-walk on the canvas
@@ -333,7 +357,8 @@ function readInput() {
     my = stick.my;
     if (Math.hypot(mx, my) > 0.82) run = true;
   }
-  return { mx, my, run };
+  const actHeld = actPointerHeld || keys.has(' ') || keys.has('z') || keys.has('enter');
+  return { mx, my, run, actHeld };
 }
 
 // --- Main Loop -------------------------------------------------------------

@@ -21,6 +21,8 @@ export class Game {
     this.footprints = [];
     this.walkTarget = null; // optional tap-to-walk { x, y }
     this.glide = null; // active glide { sx, sy, ex, ey, t, dur }
+    this.glideBuffer = 0; // input buffer so pressing/holding Act near landing chains glides
+    this.actCooldown = 0; // brief cooldown for continuous run-and-place rocks/brambles
     this.transition = null; // { kind: 'wake' | 'heart', t, dur, swapped }
     this.idleSec = 0;
     this.sitting = false;
@@ -361,10 +363,23 @@ export class Game {
     return null;
   }
 
-  performAction() {
+  performAction(continuous = false) {
+    // Buffer glide input when Act is pressed mid-glide so players can chain glides seamlessly!
+    if (this.glide) {
+      this.glideBuffer = 0.24;
+      return false;
+    }
     const act = this.getContextAction();
     if (!act) return false;
-    this.walkTarget = null;
+    // Continuous hold only auto-fires traversal actions (stepping stones, burning brambles, gliding)
+    // so holding Act while sprinting never accidentally sits down or picks up cairns.
+    if (continuous && act.kind !== 'stepstone' && act.kind !== 'burn' && act.kind !== 'glide') {
+      return false;
+    }
+    // Keep movement/walkTarget flowing when placing rocks, burning brambles, or gliding!
+    if (act.kind !== 'stepstone' && act.kind !== 'burn' && act.kind !== 'glide' && act.kind !== 'build-cairn') {
+      this.walkTarget = null;
+    }
     this.sitting = false;
     this.idleSec = 0;
 
@@ -502,9 +517,12 @@ export class Game {
     return moved;
   }
 
-  update(dt, input = { mx: 0, my: 0, run: false }) {
+  update(dt, input = { mx: 0, my: 0, run: false, actHeld: false }) {
     const step = Math.min(0.05, Math.max(0, dt));
     this.time += step;
+    if (this.actCooldown > 0) this.actCooldown = Math.max(0, this.actCooldown - step);
+    if (this.glideBuffer > 0) this.glideBuffer = Math.max(0, this.glideBuffer - step);
+    if (input.actHeld && this.glide) this.glideBuffer = 0.16;
 
     // 1. Handle transitions (Heart world rebirth or Wake at last fire)
     if (this.transition) {
@@ -544,6 +562,16 @@ export class Game {
       if (k >= 1) {
         this.glide = null;
         this._markVisited();
+        // Update facing from current stick/keyboard before checking buffered chained glide
+        if (Math.hypot(input.mx || 0, input.my || 0) > 0.12) {
+          const m = Math.hypot(input.mx, input.my);
+          this.player.fx = input.mx / m;
+          this.player.fy = input.my / m;
+        }
+        if (this.glideBuffer > 0 || input.actHeld) {
+          this.glideBuffer = 0;
+          this.performAction(true);
+        }
       }
       this._updateParticles(step);
       return;
@@ -553,6 +581,22 @@ export class Game {
     let mx = input.mx || 0;
     let my = input.my || 0;
     let run = Boolean(input.run);
+
+    // Run-and-place rocks / burn brambles / glide continuously while holding Act!
+    if (input.actHeld && this.actCooldown <= 0) {
+      if (Math.hypot(mx, my) > 0.12) {
+        const m = Math.hypot(mx, my);
+        this.player.fx = mx / m;
+        this.player.fy = my / m;
+      }
+      if (this.performAction(true)) {
+        this.actCooldown = 0.12;
+        if (this.glide) {
+          this._updateParticles(step);
+          return;
+        }
+      }
+    }
 
     if (Math.hypot(mx, my) > 0.12) {
       this.walkTarget = null;

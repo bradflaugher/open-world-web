@@ -136,3 +136,19 @@ test('serialization round-trips state and Heart carries cairns & stars to next w
   assert.equal(restored.worldNumber, 3);
   assert.equal(restored.world.oldCairns.length, 1);
 });
+
+test('holding Act while running continuously places stepping stones without stopping', () => {
+  const g = new Game();
+  g.items[ITEM.STONES] = true;
+  const b1 = g.world.beacons[1];
+  // Start on the outer sand ring just south of Beacon 1's shallow moat (radius 3.6..5.2)
+  g.player.x = b1.x + 0.5;
+  g.player.y = b1.y + 6.5;
+  const startY = g.player.y;
+  for (let i = 0; i < 30; i++) {
+    g.update(0.05, { mx: 0, my: -1, run: true, actHeld: true });
+  }
+  assert.equal(g.world.mtAt(b1.x, b1.y + 5), MT.STEPSTONE);
+  assert.equal(g.world.mtAt(b1.x, b1.y + 4), MT.STEPSTONE);
+  assert.ok(g.player.y < startY - 3, 'player should keep running forward while placing stones');
+});
