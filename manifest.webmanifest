@@ -1,0 +1,16 @@
+{
+  "name": "Open World",
+  "short_name": "Open World",
+  "description": "A wordless, procedurally generated wandering game for phone and browser.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#182232",
+  "theme_color": "#182232",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
