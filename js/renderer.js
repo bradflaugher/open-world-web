@@ -353,8 +353,10 @@ export class Renderer {
     const wispFrame = (Math.floor(t * 4) & 1) ? SPR.WISP1 : SPR.WISP0;
     const baseCx = Math.floor(baseTx / 24);
     const baseCy = Math.floor(baseTy / 24);
-    for (let wcy = baseCy - 1; wcy <= baseCy + 1; wcy++) {
-      for (let wcx = baseCx - 1; wcx <= baseCx + 1; wcx++) {
+    const chunkRadX = Math.ceil((vw / 32 + 2) / 24);
+    const chunkRadY = Math.ceil(((vh - hh) / 32 + 2) / 24);
+    for (let wcy = baseCy - chunkRadY; wcy <= baseCy + chunkRadY; wcy++) {
+      for (let wcx = baseCx - chunkRadX; wcx <= baseCx + chunkRadX; wcx++) {
         const wisp = game.world.wispInChunk(wcx, wcy);
         if (!wisp) continue;
         const wx = toFbX(wisp.x + 0.5) - 4;
