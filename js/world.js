@@ -309,6 +309,7 @@ export class World {
     const oy = 4 + (hash2d(cx, cy, this.seed ^ 0x9933) % 16);
     const wx = wrapCoord(cx * 24 + ox);
     const wy = wrapCoord(cy * 24 + oy);
+    if (worldDist(wx, wy, this.start.x, this.start.y) < 5) return null;
     const mt = this.mtAt(wx, wy);
     if (MT_FLAGS[mt] & MTF.SOLID) return null;
     return { x: wx, y: wy, key };
