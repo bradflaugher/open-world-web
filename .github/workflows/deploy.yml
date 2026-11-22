@@ -63,6 +63,9 @@ jobs:
           mkdir -p _site
           cp index.html icon.svg manifest.webmanifest _headers _site/
           cp -r css js _site/
+          VER="${GITHUB_SHA:0:8}"
+          sed -i "s|css/style\.css|css/style.css?v=${VER}|g; s|js/main\.js|js/main.js?v=${VER}|g" _site/index.html
+          sed -i -E "s|from '(\./[^']+\.js)'|from '\1?v=${VER}'|g" _site/js/*.js
           test -f _site/index.html
           test -f _site/_headers
           test -f _site/js/main.js
