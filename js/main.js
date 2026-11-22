@@ -161,6 +161,7 @@ function openGame() {
   titleEl.hidden = true;
   hud.hidden = false;
   controls.hidden = false;
+  handleResize();
   updateHud();
 }
 
@@ -169,6 +170,7 @@ function openTitle() {
   mapModal.hidden = true;
   hud.hidden = true;
   controls.hidden = true;
+  handleResize();
   updateTitleButtons();
   titleEl.hidden = false;
 }
@@ -342,7 +344,8 @@ function releaseStick(e) {
   stickKnob.style.transform = '';
   if (!wasDrag && started && mapModal.hidden) {
     // Tap-to-walk: walk right to the tapped tile!
-    const target = renderer.screenToWorld(game, e.clientX, e.clientY);
+    const rect = canvas.getBoundingClientRect();
+    const target = renderer.screenToWorld(game, e.clientX - rect.left, e.clientY - rect.top);
     if (target) game.walkTarget = target;
   }
 }
@@ -376,7 +379,11 @@ function readInput() {
 // --- Main Loop -------------------------------------------------------------
 
 function handleResize() {
-  renderer.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
+  const rect = canvas.getBoundingClientRect();
+  const w = Math.max(1, Math.round(rect.width || window.innerWidth));
+  const h = Math.max(1, Math.round(rect.height || window.innerHeight));
+  renderer.resize(w, h, window.devicePixelRatio);
+  toastEl.style.top = `${Math.round(rect.top + renderer.horizonH * renderer.scale + 12)}px`;
 }
 window.addEventListener('resize', handleResize);
 handleResize();
