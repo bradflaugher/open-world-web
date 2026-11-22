@@ -7,6 +7,7 @@ import { Renderer } from './renderer.js';
 import { SoundEngine } from './audio.js';
 import { ITEM } from './world.js';
 import { createPixelIcon } from './hud-icons.js';
+import { ABILITY_CUTSCENES, renderCutsceneFrame } from './cutscene.js';
 
 const SAVE_KEY = 'open_world_web_v1';
 const SOUND_KEY = 'open_world_web_sound';
@@ -19,6 +20,8 @@ const controls = $('controls');
 const titleEl = $('title');
 const mapModal = $('map-modal');
 const mapCanvas = $('map-canvas');
+const cutsceneModal = $('cutscene-modal');
+const cutsceneCanvas = $('cutscene-canvas');
 const stickEl = $('stick');
 const stickKnob = $('stick-knob');
 const toastEl = $('toast');
@@ -53,6 +56,10 @@ try {
 
 let started = false;
 let toastTimer = 0;
+let cutsceneItem = null;
+let cutsceneT = 0;
+let cutsceneOpenedAt = 0;
+let cutscenePrevFocus = null;
 
 function showToast(msg, ms = 2400) {
   toastEl.textContent = msg;
@@ -168,6 +175,8 @@ function openGame() {
 function openTitle() {
   started = false;
   mapModal.hidden = true;
+  cutsceneModal.hidden = true;
+  cutsceneItem = null;
   hud.hidden = true;
   controls.hidden = true;
   handleResize();
@@ -175,7 +184,42 @@ function openTitle() {
   titleEl.hidden = false;
 }
 
+function showCutscene(item) {
+  const meta = ABILITY_CUTSCENES[item];
+  if (!meta) return;
+  cutscenePrevFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  cutsceneItem = item;
+  cutsceneT = 0;
+  cutsceneOpenedAt = performance.now();
+  mapModal.hidden = true;
+  keys.clear();
+  actPointerHeld = false;
+  stick = null;
+  stickEl.hidden = true;
+  stickKnob.style.transform = '';
+  $('cutscene-eyebrow').textContent = meta.eyebrow;
+  $('cutscene-icon').replaceChildren(createPixelIcon(meta.icon, 26));
+  $('cutscene-title').textContent = meta.title;
+  $('cutscene-summary').textContent = meta.summary;
+  $('cutscene-hint').textContent = meta.hint;
+  renderCutsceneFrame(cutsceneCanvas, item, 0, game.palette);
+  cutsceneModal.hidden = false;
+  $('btn-cutscene-close').focus({ preventScroll: true });
+}
+
+function closeCutscene(force = false) {
+  if (cutsceneModal.hidden) return;
+  if (!force && performance.now() - cutsceneOpenedAt < 450) return;
+  cutsceneModal.hidden = true;
+  cutsceneItem = null;
+  if (cutscenePrevFocus && cutscenePrevFocus.isConnected) {
+    cutscenePrevFocus.focus({ preventScroll: true });
+  }
+  cutscenePrevFocus = null;
+}
+
 function toggleMap(force) {
+  if (!cutsceneModal.hidden) return;
   const show = force !== undefined ? force : mapModal.hidden;
   mapModal.hidden = !show;
   if (show) {
@@ -195,6 +239,10 @@ $('btn-map').addEventListener('click', () => toggleMap());
 $('btn-map-close').addEventListener('click', () => toggleMap(false));
 mapModal.addEventListener('click', (e) => {
   if (e.target === mapModal) toggleMap(false);
+});
+$('btn-cutscene-close').addEventListener('click', () => closeCutscene(true));
+cutsceneModal.addEventListener('click', (e) => {
+  if (e.target === cutsceneModal) closeCutscene(false);
 });
 $('btn-palette').addEventListener('click', () => {
   game.palette = game.palette === 'dmg' ? 'color' : 'dmg';
@@ -240,6 +288,18 @@ actBtn.addEventListener('click', (e) => {
 
 const keys = new Set();
 window.addEventListener('keydown', (e) => {
+  if (!cutsceneModal.hidden) {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      $('btn-cutscene-close').focus({ preventScroll: true });
+      return;
+    }
+    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!e.repeat) closeCutscene(false);
+    }
+    return;
+  }
   if (e.key === 'Escape') {
     if (!mapModal.hidden) {
       e.preventDefault();
@@ -308,7 +368,7 @@ document.addEventListener('visibilitychange', () => {
 let stick = null; // { id, x0, y0, mx, my, moved }
 
 canvas.addEventListener('pointerdown', (e) => {
-  if (!started || !mapModal.hidden || e.button > 0) return;
+  if (!started || !mapModal.hidden || !cutsceneModal.hidden || e.button > 0) return;
   sound.unlock();
   canvas.setPointerCapture(e.pointerId);
   stick = { id: e.pointerId, x0: e.clientX, y0: e.clientY, mx: 0, my: 0, moved: false };
@@ -342,7 +402,7 @@ function releaseStick(e) {
   stick = null;
   stickEl.hidden = true;
   stickKnob.style.transform = '';
-  if (!wasDrag && started && mapModal.hidden) {
+  if (!wasDrag && started && mapModal.hidden && cutsceneModal.hidden) {
     // Tap-to-walk: walk right to the tapped tile!
     const rect = canvas.getBoundingClientRect();
     const target = renderer.screenToWorld(game, e.clientX - rect.left, e.clientY - rect.top);
@@ -396,12 +456,16 @@ function frame(now) {
   const dt = Math.min(0.05, (now - lastTs) / 1000);
   lastTs = now;
 
-  const playing = started && mapModal.hidden;
+  const playing = started && mapModal.hidden && cutsceneModal.hidden;
   if (playing) {
     game.update(dt, readInput());
     sound.update(dt, game.currentBiome(), game.litBeaconCount);
   } else {
     game.time += dt;
+    if (!cutsceneModal.hidden && cutsceneItem !== null) {
+      cutsceneT += dt;
+      renderCutsceneFrame(cutsceneCanvas, cutsceneItem, cutsceneT, game.palette);
+    }
   }
 
   for (const ev of game.drainEvents()) {
@@ -414,7 +478,7 @@ function frame(now) {
       showToast(ev.allLit ? 'All 3 beacons lit · The Heart rises!' : `Beacon ${ev.count} of 3 lit!`);
     } else if (ev.type === 'item-found') {
       saveGame(game);
-      showToast(ev.item === ITEM.STONES ? 'Claimed Stones · Bridge shallows & build cairns' : 'Claimed Cloak · Glide across rock & water');
+      showCutscene(ev.item);
     } else if (ev.type === 'wisp-collected') {
       saveGame(game);
       showToast(`★ Star ${ev.stars} rose into the sky`);
@@ -425,8 +489,10 @@ function frame(now) {
     }
   }
 
-  if (playing) {
+  if (playing || !cutsceneModal.hidden) {
     updateHud();
+  }
+  if (playing) {
     saveAccum += dt;
     if (saveAccum >= 12) {
       saveAccum = 0;
@@ -441,4 +507,4 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // Expose hooks for automated playtesting
-window.__ow = { game, renderer, sound, openGame, toggleMap };
+window.__ow = { game, renderer, sound, openGame, toggleMap, showCutscene, closeCutscene };
