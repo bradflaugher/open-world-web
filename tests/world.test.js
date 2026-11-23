@@ -228,6 +228,31 @@ test('building a cairn on land never traps the player', () => {
   // A player already wedged inside a solid tile (e.g. an old save) can walk back out.
   g.world.placeCairn(bx + 1, by);
   g.player.x = bx + 0.9; g.player.y = by + 0.5;
+  g.update(0.05, { mx: 1, my: 0, run: true, actHeld: false });
+  assert.equal(g.player.x, bx + 0.9, 'cannot push deeper into the solid tile');
   g.update(0.05, { mx: -1, my: 0, run: true, actHeld: false });
   assert.ok(g.player.x < bx + 0.9);
+});
+
+test('a contextual glide keeps the selected item and does not chain into free jumps', () => {
+  const g = new Game();
+  g.items[ITEM.CLOAK] = true;
+  g.selectedItem = ITEM.LANTERN;
+  const bx = g.world.start.x + 20;
+  const by = g.world.start.y + 20;
+  clearGround(g, bx - 2, by - 2, bx + 12, by + 2);
+  g.world.setMod(bx + 1, by, MT.ROCK);
+  g.player.x = bx + 0.5; g.player.y = by + 0.5; g.player.fx = 1; g.player.fy = 0;
+  for (let i = 0; i < 30; i++) g.update(0.05, { mx: 0, my: 0, run: false, actHeld: true });
+  assert.equal(g.selectedItem, ITEM.LANTERN);
+  assert.equal(Math.floor(g.player.x), bx + 3, 'one glide over the rock, then no more');
+});
+
+test('the world keeps simulating while jumps are chained', () => {
+  const g = new Game();
+  g.items[ITEM.CLOAK] = true;
+  g.selectedItem = ITEM.CLOAK;
+  const t0 = g.dayTime;
+  for (let i = 0; i < 40; i++) g.update(0.05, { mx: 0, my: 0, run: false, actHeld: true });
+  assert.ok(Math.abs(g.dayTime - (t0 + 2 / 480)) < 1e-6, 'day clock advances every frame');
 });
