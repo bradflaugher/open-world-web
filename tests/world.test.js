@@ -153,6 +153,9 @@ test('holding Act while running continuously places stepping stones without stop
   assert.ok(g.player.y < startY - 3, 'player should keep running forward while placing stones');
 });
 
+// Fixed seed (overridable to sweep seeds locally) so these tests never depend on random terrain.
+const TEST_SEED = Number(process.env.OW_TEST_SEED) || 1;
+
 function clearGround(g, x0, y0, x1, y1) {
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) g.world.setMod(x, y, MT.GRASS);
@@ -160,7 +163,7 @@ function clearGround(g, x0, y0, x1, y1) {
 }
 
 test('with the Cloak selected, Act jumps anywhere: open ground, over trees, or on the spot', () => {
-  const g = new Game();
+  const g = new Game({ seed: TEST_SEED });
   g.items[ITEM.CLOAK] = true;
   g.selectedItem = ITEM.CLOAK;
   const bx = g.world.start.x + 20;
@@ -200,7 +203,7 @@ test('with the Cloak selected, Act jumps anywhere: open ground, over trees, or o
 });
 
 test('building a cairn on land never traps the player', () => {
-  const g = new Game();
+  const g = new Game({ seed: TEST_SEED });
   g.items[ITEM.STONES] = true;
   g.selectedItem = ITEM.STONES;
   const bx = g.world.start.x + 20;
@@ -223,6 +226,7 @@ test('building a cairn on land never traps the player', () => {
     g.update(0.05, { mx: Math.round(fx), my: Math.round(fy), run: true, actHeld: false });
     assert.notEqual(`${Math.floor(g.player.x)},${Math.floor(g.player.y)}`, `${cx},${cy}`);
     g.world.removeCairn(cx, cy);
+    g.world.setMod(cx, cy, MT.GRASS); // removeCairn drops the override; keep the ground cleared
   }
 
   // A player already wedged inside a solid tile (e.g. an old save) can walk back out.
@@ -235,7 +239,7 @@ test('building a cairn on land never traps the player', () => {
 });
 
 test('a contextual glide keeps the selected item and does not chain into free jumps', () => {
-  const g = new Game();
+  const g = new Game({ seed: TEST_SEED });
   g.items[ITEM.CLOAK] = true;
   g.selectedItem = ITEM.LANTERN;
   const bx = g.world.start.x + 20;
@@ -249,7 +253,7 @@ test('a contextual glide keeps the selected item and does not chain into free ju
 });
 
 test('the world keeps simulating while jumps are chained', () => {
-  const g = new Game();
+  const g = new Game({ seed: TEST_SEED });
   g.items[ITEM.CLOAK] = true;
   g.selectedItem = ITEM.CLOAK;
   const t0 = g.dayTime;
