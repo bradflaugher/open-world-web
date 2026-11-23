@@ -10,6 +10,7 @@ export const DAY_DURATION_SEC = 480; // 8-minute day/night cycle
 export const WALK_SPEED = 4.2; // tiles/sec
 export const RUN_SPEED = 7.0; // tiles/sec
 export const GLIDE_SPEED = 11.5; // tiles/sec
+export const PLAYER_RADIUS = 0.28; // generous kid-friendly collision radius
 
 export class Game {
   constructor(saved = null) {
@@ -246,7 +247,10 @@ export class Game {
     }
   }
 
-  _findGlideLanding(fx, fy) {
+  // Finds where a cloak jump lands. With `free` (Cloak selected) the Wanderer can jump at any
+  // time and over anything, trees included: only the landing cell has to be open. Without it
+  // (Cloak carried but not selected) Act only glides over water, crags, and thorns ahead.
+  _findGlideLanding(fx, fy, free = false) {
     // Facing unit step (8-way), plus fallback to cardinal axes if diagonal is blocked.
     const dirs = [[Math.round(fx), Math.round(fy)]];
     if (dirs[0][0] !== 0 && dirs[0][1] !== 0) {
@@ -259,7 +263,7 @@ export class Game {
       if (dx === 0 && dy === 0) continue;
       const t1x = wrapCoord(px + dx);
       const t1y = wrapCoord(py + dy);
-      if (!(this.world.flagsAt(t1x, t1y) & MTF.GLIDE)) continue;
+      if (!free && !(this.world.flagsAt(t1x, t1y) & MTF.GLIDE)) continue;
       // Try 3 cells, then 2, then 4 (faithful to the Game Boy cloak!).
       for (const dist of [3, 2, 4]) {
         const lx = wrapCoord(px + dx * dist);
@@ -267,7 +271,7 @@ export class Game {
         if (this.isSolid(lx, ly)) continue;
         // Make sure intermediate cells are glideable or open
         let clear = true;
-        for (let s = 1; s < dist; s++) {
+        for (let s = 1; s < dist && !free; s++) {
           const ix = wrapCoord(px + dx * s);
           const iy = wrapCoord(py + dy * s);
           const f = this.world.flagsAt(ix, iy);
@@ -279,7 +283,15 @@ export class Game {
         if (clear) return { x: lx, y: ly, dx, dy, dist };
       }
     }
-    return null;
+    if (!free) return null;
+    // Nowhere to land further out: take a short hop forward, or failing that hop on the spot.
+    for (const [dx, dy] of dirs) {
+      if (dx === 0 && dy === 0) continue;
+      const lx = wrapCoord(px + dx);
+      const ly = wrapCoord(py + dy);
+      if (!this.isSolid(lx, ly)) return { x: lx, y: ly, dx, dy, dist: 1 };
+    }
+    return { x: wrapCoord(px), y: wrapCoord(py), dx: 0, dy: 0, dist: 0 };
   }
 
   // Kid-friendly smart context resolver: inspects the tile in front of the player
@@ -304,6 +316,9 @@ export class Game {
 
     const seen = new Set();
     let secondary = null;
+    // With the Cloak selected, Act is a jump: only the big interactions (shrine, beacon, fire,
+    // Heart) take priority over it.
+    const cloakSelected = this.items[ITEM.CLOAK] && this.selectedItem === ITEM.CLOAK;
 
     for (const c of candidates) {
       const k = `${c.x},${c.y}`;
@@ -323,6 +338,7 @@ export class Game {
       if (mt === MT.FIRE_COLD) {
         return { kind: 'light-fire', x: c.x, y: c.y, item: ITEM.LANTERN, label: 'Light', icon: 'flame' };
       }
+      if (cloakSelected) continue;
       if (mt === MT.BRAMBLE && c.direct) {
         return { kind: 'burn', x: c.x, y: c.y, item: ITEM.LANTERN, label: 'Burn', icon: 'flame' };
       }
@@ -344,9 +360,12 @@ export class Game {
     }
 
     if (this.items[ITEM.CLOAK]) {
-      const landing = this._findGlideLanding(this.player.fx, this.player.fy);
+      const landing = this._findGlideLanding(this.player.fx, this.player.fy, cloakSelected);
       if (landing) {
-        return { kind: 'glide', x: landing.x, y: landing.y, landing, item: ITEM.CLOAK, label: 'Glide', icon: 'cloak' };
+        return {
+          kind: 'glide', x: landing.x, y: landing.y, landing, item: ITEM.CLOAK,
+          label: cloakSelected ? 'Jump' : 'Glide', icon: 'cloak', free: cloakSelected,
+        };
       }
     }
 
@@ -433,6 +452,7 @@ export class Game {
       }
       case 'build-cairn': {
         this.world.placeCairn(act.x, act.y);
+        this._pushOutOfTile(act.x, act.y);
         this._burstParticles(act.x + 0.5, act.y + 0.5, 10, 'dust');
         this.emit('cairn-built', { x: act.x, y: act.y });
         return true;
@@ -447,9 +467,10 @@ export class Game {
         const { x, y, dist } = act.landing;
         const sx = this.player.x;
         const sy = this.player.y;
-        const ex = sx + wrapDelta(Math.floor(sx), x) + (0.5 - (sx - Math.floor(sx)));
-        const ey = sy + wrapDelta(Math.floor(sy), y) + (0.5 - (sy - Math.floor(sy)));
-        this.glide = { sx, sy, ex, ey, t: 0, dur: Math.max(0.22, dist / GLIDE_SPEED) };
+        // A hop on the spot (dist 0) lands exactly where it took off.
+        const ex = dist ? sx + wrapDelta(Math.floor(sx), x) + (0.5 - (sx - Math.floor(sx))) : sx;
+        const ey = dist ? sy + wrapDelta(Math.floor(sy), y) + (0.5 - (sy - Math.floor(sy))) : sy;
+        this.glide = { sx, sy, ex, ey, t: 0, dist, dur: Math.max(0.26, dist / GLIDE_SPEED) };
         this._burstParticles(sx, sy, 14, 'wind');
         this.emit('glide', { dist });
         return true;
@@ -489,16 +510,43 @@ export class Game {
     }
   }
 
+  // Nudges the Wanderer back so their collision box no longer overlaps tile (tx, ty).
+  // Used when a cairn is built on a tile the player is already partly standing on.
+  _pushOutOfTile(tx, ty) {
+    const r = PLAYER_RADIUS + 0.01;
+    const p = this.player;
+    // Player position relative to the tile's origin (the tile spans 0..1 on both axes).
+    const ox = wrapDelta(tx, Math.floor(p.x)) + (p.x - Math.floor(p.x));
+    const oy = wrapDelta(ty, Math.floor(p.y)) + (p.y - Math.floor(p.y));
+    if (ox + r <= 0 || ox - r >= 1 || oy + r <= 0 || oy - r >= 1) return;
+    const pushX = ox < 0.5 ? -(ox + r) : 1 - (ox - r);
+    const pushY = oy < 0.5 ? -(oy + r) : 1 - (oy - r);
+    if (Math.abs(pushX) <= Math.abs(pushY)) {
+      p.x = (((p.x + pushX) % 65536) + 65536) % 65536;
+    } else {
+      p.y = (((p.y + pushY) % 65536) + 65536) % 65536;
+    }
+  }
+
   _tryMove(dx, dy) {
-    const r = 0.28; // generous kid-friendly collision radius
+    const r = PLAYER_RADIUS;
     const nx = this.player.x + dx;
     const ny = this.player.y + dy;
-    const blocked = (px, py) => (
-      this.isSolid(Math.floor(px - r), Math.floor(py - r))
-      || this.isSolid(Math.floor(px + r), Math.floor(py - r))
-      || this.isSolid(Math.floor(px - r), Math.floor(py + r))
-      || this.isSolid(Math.floor(px + r), Math.floor(py + r))
-    );
+    const corners = (px, py) => [
+      [Math.floor(px - r), Math.floor(py - r)],
+      [Math.floor(px + r), Math.floor(py - r)],
+      [Math.floor(px - r), Math.floor(py + r)],
+      [Math.floor(px + r), Math.floor(py + r)],
+    ];
+    // Solid tiles the player already overlaps never block, so the Wanderer can always walk
+    // back out of one instead of being stuck in place.
+    const inside = new Set();
+    for (const [cx, cy] of corners(this.player.x, this.player.y)) {
+      if (this.isSolid(cx, cy)) inside.add(`${wrapCoord(cx)},${wrapCoord(cy)}`);
+    }
+    const blocked = (px, py) => corners(px, py).some(([cx, cy]) => (
+      this.isSolid(cx, cy) && !inside.has(`${wrapCoord(cx)},${wrapCoord(cy)}`)
+    ));
 
     if (!blocked(nx, ny)) {
       this.player.x = ((nx % 65536) + 65536) % 65536;

@@ -152,3 +152,82 @@ test('holding Act while running continuously places stepping stones without stop
   assert.equal(g.world.mtAt(b1.x, b1.y + 4), MT.STEPSTONE);
   assert.ok(g.player.y < startY - 3, 'player should keep running forward while placing stones');
 });
+
+function clearGround(g, x0, y0, x1, y1) {
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) g.world.setMod(x, y, MT.GRASS);
+  }
+}
+
+test('with the Cloak selected, Act jumps anywhere: open ground, over trees, or on the spot', () => {
+  const g = new Game();
+  g.items[ITEM.CLOAK] = true;
+  g.selectedItem = ITEM.CLOAK;
+  const bx = g.world.start.x + 20;
+  const by = g.world.start.y + 20;
+  clearGround(g, bx - 6, by - 6, bx + 6, by + 6);
+  const land = () => { for (let i = 0; i < 20; i++) g.update(0.05); };
+
+  // Open ground, nothing to cross: still jumps 3 tiles.
+  g.player.x = bx + 0.5; g.player.y = by + 0.5; g.player.fx = 1; g.player.fy = 0;
+  const act = g.getContextAction();
+  assert.equal(act.kind, 'glide');
+  assert.equal(act.label, 'Jump');
+  assert.equal(g.performAction(), true);
+  land();
+  assert.equal(Math.floor(g.player.x), bx + 3);
+
+  // Over trees (which the contextual glide refuses).
+  g.world.setMod(bx + 1, by, MT.TREE);
+  g.world.setMod(bx + 2, by, MT.TREE);
+  g.player.x = bx + 0.5;
+  g.selectedItem = ITEM.LANTERN;
+  assert.equal(g.getContextAction(), null);
+  g.selectedItem = ITEM.CLOAK;
+  assert.equal(g.performAction(), true);
+  land();
+  assert.equal(Math.floor(g.player.x), bx + 3);
+
+  // Boxed in by trees: hops on the spot rather than doing nothing.
+  for (let d = 1; d <= 4; d++) g.world.setMod(bx + d, by, MT.TREE);
+  g.player.x = bx + 0.5;
+  assert.equal(g.performAction(), true);
+  assert.ok(g.glide !== null);
+  land();
+  assert.equal(g.glide, null);
+  assert.equal(g.player.x, bx + 0.5);
+  assert.equal(g.isSolid(Math.floor(g.player.x), Math.floor(g.player.y)), false);
+});
+
+test('building a cairn on land never traps the player', () => {
+  const g = new Game();
+  g.items[ITEM.STONES] = true;
+  g.selectedItem = ITEM.STONES;
+  const bx = g.world.start.x + 20;
+  const by = g.world.start.y + 20;
+  clearGround(g, bx - 3, by - 3, bx + 3, by + 3);
+
+  // Standing at the tile edge so the collision box pokes into the tile ahead.
+  for (const [fx, fy, px, py] of [[1, 0, 0.9, 0.5], [0.7, 0.7, 0.9, 0.9], [0, -1, 0.5, 0.05]]) {
+    g.player.x = bx + px; g.player.y = by + py; g.player.fx = fx; g.player.fy = fy;
+    assert.equal(g.getContextAction().kind, 'build-cairn');
+    assert.equal(g.performAction(), true);
+    const cx = bx + Math.round(fx);
+    const cy = by + Math.round(fy);
+    assert.equal(g.world.mtAt(cx, cy), MT.CAIRN);
+    const x0 = g.player.x;
+    const y0 = g.player.y;
+    g.update(0.05, { mx: -Math.round(fx), my: -Math.round(fy), run: true, actHeld: false });
+    assert.ok(g.player.x !== x0 || g.player.y !== y0, 'player can walk away from the new cairn');
+    g.player.x = x0; g.player.y = y0;
+    g.update(0.05, { mx: Math.round(fx), my: Math.round(fy), run: true, actHeld: false });
+    assert.notEqual(`${Math.floor(g.player.x)},${Math.floor(g.player.y)}`, `${cx},${cy}`);
+    g.world.removeCairn(cx, cy);
+  }
+
+  // A player already wedged inside a solid tile (e.g. an old save) can walk back out.
+  g.world.placeCairn(bx + 1, by);
+  g.player.x = bx + 0.9; g.player.y = by + 0.5;
+  g.update(0.05, { mx: -1, my: 0, run: true, actHeld: false });
+  assert.ok(g.player.x < bx + 0.9);
+});

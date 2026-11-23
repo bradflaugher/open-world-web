@@ -36,8 +36,8 @@ export const ABILITY_CUTSCENES = {
     eyebrow: 'NEW ABILITY CLAIMED',
     title: 'WIND CLOAK',
     icon: 'cloak',
-    summary: 'Leap off the ground and catch the wind to soar right over crags, cliffs, and water.',
-    hint: 'Tap or hold ACT (or Space) while moving to jump and chain glides.',
+    summary: 'Leap off the ground any time and catch the wind to soar right over trees, crags, and water.',
+    hint: 'With the Cloak selected, tap or hold ACT (or Space) to jump anywhere and chain glides.',
   },
 };
 
