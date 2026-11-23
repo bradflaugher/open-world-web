@@ -401,7 +401,7 @@ export class Renderer {
     } else {
       plSpr = stepFrame ? SPR.PL_DOWN1 : SPR.PL_DOWN0;
     }
-    const glideLift = game.glide ? -Math.round(Math.sin((game.glide.t / game.glide.dur) * Math.PI) * 5) : 0;
+    const glideLift = game.glide ? -Math.round(Math.sin((game.glide.t / game.glide.dur) * Math.PI) * (5 + (game.glide.dist || 0))) : 0;
     this._blitSpr16x16(buf, vw, vh, plSpr, OPAL.PLAYER, cx - 8, cy - 10 + glideLift, plFlipX, hh);
 
     // 7. Fireflies (exact Game Boy firefly sprite)
@@ -527,7 +527,7 @@ export class Renderer {
 
     // Bobbing pixel-art context prompt above interactable target (matches GBC/DMG style)
     const act = game.getContextAction();
-    if (act && act.kind !== 'build-cairn') {
+    if (act && act.kind !== 'build-cairn' && !act.free) {
       const dmg = game.palette === 'dmg';
       const ax = Math.round(toScreenX(act.x + 0.5));
       const ay = Math.round(toScreenY(act.y) - 10 + Math.round(Math.sin(t * 5.2) * 2.5));

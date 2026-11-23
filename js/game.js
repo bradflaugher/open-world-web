@@ -10,6 +10,7 @@ export const DAY_DURATION_SEC = 480; // 8-minute day/night cycle
 export const WALK_SPEED = 4.2; // tiles/sec
 export const RUN_SPEED = 7.0; // tiles/sec
 export const GLIDE_SPEED = 11.5; // tiles/sec
+export const PLAYER_RADIUS = 0.28; // generous kid-friendly collision radius
 
 export class Game {
   constructor(saved = null) {
@@ -246,7 +247,10 @@ export class Game {
     }
   }
 
-  _findGlideLanding(fx, fy) {
+  // Finds where a cloak jump lands. With `free` (Cloak selected) the Wanderer can jump at any
+  // time and over anything, trees included: only the landing cell has to be open. Without it
+  // (Cloak carried but not selected) Act only glides over water, crags, and thorns ahead.
+  _findGlideLanding(fx, fy, free = false) {
     // Facing unit step (8-way), plus fallback to cardinal axes if diagonal is blocked.
     const dirs = [[Math.round(fx), Math.round(fy)]];
     if (dirs[0][0] !== 0 && dirs[0][1] !== 0) {
@@ -259,7 +263,7 @@ export class Game {
       if (dx === 0 && dy === 0) continue;
       const t1x = wrapCoord(px + dx);
       const t1y = wrapCoord(py + dy);
-      if (!(this.world.flagsAt(t1x, t1y) & MTF.GLIDE)) continue;
+      if (!free && !(this.world.flagsAt(t1x, t1y) & MTF.GLIDE)) continue;
       // Try 3 cells, then 2, then 4 (faithful to the Game Boy cloak!).
       for (const dist of [3, 2, 4]) {
         const lx = wrapCoord(px + dx * dist);
@@ -267,7 +271,7 @@ export class Game {
         if (this.isSolid(lx, ly)) continue;
         // Make sure intermediate cells are glideable or open
         let clear = true;
-        for (let s = 1; s < dist; s++) {
+        for (let s = 1; s < dist && !free; s++) {
           const ix = wrapCoord(px + dx * s);
           const iy = wrapCoord(py + dy * s);
           const f = this.world.flagsAt(ix, iy);
@@ -279,7 +283,15 @@ export class Game {
         if (clear) return { x: lx, y: ly, dx, dy, dist };
       }
     }
-    return null;
+    if (!free) return null;
+    // Nowhere to land further out: take a short hop forward, or failing that hop on the spot.
+    for (const [dx, dy] of dirs) {
+      if (dx === 0 && dy === 0) continue;
+      const lx = wrapCoord(px + dx);
+      const ly = wrapCoord(py + dy);
+      if (!this.isSolid(lx, ly)) return { x: lx, y: ly, dx, dy, dist: 1 };
+    }
+    return { x: wrapCoord(px), y: wrapCoord(py), dx: 0, dy: 0, dist: 0 };
   }
 
   // Kid-friendly smart context resolver: inspects the tile in front of the player
@@ -304,6 +316,9 @@ export class Game {
 
     const seen = new Set();
     let secondary = null;
+    // With the Cloak selected, Act is a jump: only the big interactions (shrine, beacon, fire,
+    // Heart) take priority over it.
+    const cloakSelected = this.items[ITEM.CLOAK] && this.selectedItem === ITEM.CLOAK;
 
     for (const c of candidates) {
       const k = `${c.x},${c.y}`;
@@ -323,6 +338,7 @@ export class Game {
       if (mt === MT.FIRE_COLD) {
         return { kind: 'light-fire', x: c.x, y: c.y, item: ITEM.LANTERN, label: 'Light', icon: 'flame' };
       }
+      if (cloakSelected) continue;
       if (mt === MT.BRAMBLE && c.direct) {
         return { kind: 'burn', x: c.x, y: c.y, item: ITEM.LANTERN, label: 'Burn', icon: 'flame' };
       }
@@ -344,9 +360,12 @@ export class Game {
     }
 
     if (this.items[ITEM.CLOAK]) {
-      const landing = this._findGlideLanding(this.player.fx, this.player.fy);
+      const landing = this._findGlideLanding(this.player.fx, this.player.fy, cloakSelected);
       if (landing) {
-        return { kind: 'glide', x: landing.x, y: landing.y, landing, item: ITEM.CLOAK, label: 'Glide', icon: 'cloak' };
+        return {
+          kind: 'glide', x: landing.x, y: landing.y, landing, item: ITEM.CLOAK,
+          label: cloakSelected ? 'Jump' : 'Glide', icon: 'cloak', free: cloakSelected,
+        };
       }
     }
 
@@ -385,7 +404,9 @@ export class Game {
     this.actCooldown = 0.14;
 
     // Auto-select the appropriate carried item so kids never get stuck switching items.
-    if (act.item !== null && this.items[act.item]) {
+    // A contextual glide (Cloak carried, not selected) keeps the current item: selecting the
+    // Cloak there would turn a held Act into free jumps across open ground after landing.
+    if (act.item !== null && this.items[act.item] && !(act.kind === 'glide' && !act.free)) {
       this.selectedItem = act.item;
     }
 
@@ -433,6 +454,7 @@ export class Game {
       }
       case 'build-cairn': {
         this.world.placeCairn(act.x, act.y);
+        this._pushOutOfTile(act.x, act.y);
         this._burstParticles(act.x + 0.5, act.y + 0.5, 10, 'dust');
         this.emit('cairn-built', { x: act.x, y: act.y });
         return true;
@@ -447,9 +469,10 @@ export class Game {
         const { x, y, dist } = act.landing;
         const sx = this.player.x;
         const sy = this.player.y;
-        const ex = sx + wrapDelta(Math.floor(sx), x) + (0.5 - (sx - Math.floor(sx)));
-        const ey = sy + wrapDelta(Math.floor(sy), y) + (0.5 - (sy - Math.floor(sy)));
-        this.glide = { sx, sy, ex, ey, t: 0, dur: Math.max(0.22, dist / GLIDE_SPEED) };
+        // A hop on the spot (dist 0) lands exactly where it took off.
+        const ex = dist ? sx + wrapDelta(Math.floor(sx), x) + (0.5 - (sx - Math.floor(sx))) : sx;
+        const ey = dist ? sy + wrapDelta(Math.floor(sy), y) + (0.5 - (sy - Math.floor(sy))) : sy;
+        this.glide = { sx, sy, ex, ey, t: 0, dist, dur: Math.max(0.26, dist / GLIDE_SPEED) };
         this._burstParticles(sx, sy, 14, 'wind');
         this.emit('glide', { dist });
         return true;
@@ -489,16 +512,49 @@ export class Game {
     }
   }
 
+  // Nudges the Wanderer back so their collision box no longer overlaps tile (tx, ty).
+  // Used when a cairn is built on a tile the player is already partly standing on.
+  _pushOutOfTile(tx, ty) {
+    const r = PLAYER_RADIUS + 0.01;
+    const p = this.player;
+    // Player position relative to the tile's origin (the tile spans 0..1 on both axes).
+    const ox = wrapDelta(tx, Math.floor(p.x)) + (p.x - Math.floor(p.x));
+    const oy = wrapDelta(ty, Math.floor(p.y)) + (p.y - Math.floor(p.y));
+    if (ox + r <= 0 || ox - r >= 1 || oy + r <= 0 || oy - r >= 1) return;
+    const pushX = ox < 0.5 ? -(ox + r) : 1 - (ox - r);
+    const pushY = oy < 0.5 ? -(oy + r) : 1 - (oy - r);
+    if (Math.abs(pushX) <= Math.abs(pushY)) {
+      p.x = (((p.x + pushX) % 65536) + 65536) % 65536;
+    } else {
+      p.y = (((p.y + pushY) % 65536) + 65536) % 65536;
+    }
+  }
+
   _tryMove(dx, dy) {
-    const r = 0.28; // generous kid-friendly collision radius
+    const r = PLAYER_RADIUS;
     const nx = this.player.x + dx;
     const ny = this.player.y + dy;
-    const blocked = (px, py) => (
-      this.isSolid(Math.floor(px - r), Math.floor(py - r))
-      || this.isSolid(Math.floor(px + r), Math.floor(py - r))
-      || this.isSolid(Math.floor(px - r), Math.floor(py + r))
-      || this.isSolid(Math.floor(px + r), Math.floor(py + r))
+    const corners = (px, py) => [
+      [Math.floor(px - r), Math.floor(py - r)],
+      [Math.floor(px + r), Math.floor(py - r)],
+      [Math.floor(px - r), Math.floor(py + r)],
+      [Math.floor(px + r), Math.floor(py + r)],
+    ];
+    // A solid tile the player already overlaps (e.g. wedged in an old save) only blocks moves
+    // that go deeper into it, so the Wanderer can always back out but never walk through.
+    const overlap = (px, py, cx, cy) => (
+      Math.max(0, Math.min(px + r, cx + 1) - Math.max(px - r, cx))
+      * Math.max(0, Math.min(py + r, cy + 1) - Math.max(py - r, cy))
     );
+    const inside = new Map();
+    for (const [cx, cy] of corners(this.player.x, this.player.y)) {
+      if (this.isSolid(cx, cy)) inside.set(`${cx},${cy}`, overlap(this.player.x, this.player.y, cx, cy));
+    }
+    const blocked = (px, py) => corners(px, py).some(([cx, cy]) => {
+      if (!this.isSolid(cx, cy)) return false;
+      const was = inside.get(`${cx},${cy}`);
+      return was === undefined || overlap(px, py, cx, cy) > was + 1e-9;
+    });
 
     if (!blocked(nx, ny)) {
       this.player.x = ((nx % 65536) + 65536) % 65536;
@@ -539,6 +595,7 @@ export class Game {
           this.warmth = 4.0;
           this.watchers = [];
           this.walkTarget = null;
+          this.glide = null;
           this.emit('woke-at-fire');
         }
       }
@@ -549,35 +606,81 @@ export class Game {
       return;
     }
 
-    // 2. Active cloak glide
-    if (this.glide) {
-      this.glide.t += step;
-      const k = Math.min(1, this.glide.t / this.glide.dur);
-      this.player.x = ((this.glide.sx + (this.glide.ex - this.glide.sx) * k) % 65536 + 65536) % 65536;
-      this.player.y = ((this.glide.sy + (this.glide.ey - this.glide.sy) * k) % 65536 + 65536) % 65536;
-      if (Math.random() < 0.6) {
-        this.particles.push({
-          x: this.player.x, y: this.player.y, vx: 0, vy: 0, life: 0, maxLife: 0.35, kind: 'wind', size: 2.2,
-        });
-      }
-      if (k >= 1) {
-        this.glide = null;
-        this._markVisited();
-        // Update facing from current stick/keyboard before checking buffered chained glide
-        if (Math.hypot(input.mx || 0, input.my || 0) > 0.12) {
-          const m = Math.hypot(input.mx, input.my);
-          this.player.fx = input.mx / m;
-          this.player.fy = input.my / m;
-        }
-        if (this.glideBuffer > 0 || input.actHeld) {
-          this.glideBuffer = 0;
-          this.performAction(true);
-        }
-      }
-      this._updateParticles(step);
-      return;
+    // 2. Active cloak glide, or 3. movement. The rest of the simulation (wisps, day clock,
+    // warmth, ambient life) keeps running either way, so chained jumps never freeze the world.
+    if (this.glide) this._updateGlide(step, input);
+    else this._updateMovement(step, input);
+
+    // 4. Collect nearby wisps -> permanent sky stars!
+    const wisp = this.world.nearestWisp(this.player.x, this.player.y);
+    if (wisp && wisp.dist < 0.95) {
+      this.world.collectedWisps.add(wisp.key);
+      if (this.stars < MAX_STARS) this.stars++;
+      this._burstParticles(wisp.x + 0.5, wisp.y + 0.5, 22, 'star');
+      this.emit('wisp-collected', { stars: this.stars, x: wisp.x, y: wisp.y });
     }
 
+    // 5. Day/night clock (passes faster when sitting near a fire)
+    const nearFire = this.isNearWarmth();
+    const timeScale = (this.sitting && nearFire) ? 14 : 1;
+    const prevDay = this.dayTime;
+    this.dayTime = (this.dayTime + (step * timeScale) / DAY_DURATION_SEC) % 1;
+    if (this.dayTime < prevDay) this.dayCount++;
+
+    // 6. Warmth (gentle & forgiving for kids)
+    if (nearFire) {
+      this.warmth = Math.min(4, this.warmth + step * 0.95);
+    } else {
+      const night = this.nightAmount;
+      const flags = this.world.flagsAt(Math.floor(this.player.x), Math.floor(this.player.y));
+      const weather = this.currentWeather();
+      if (night > 0.35) {
+        let drain = 0.032 * night;
+        if (flags & MTF.COLD) drain += 0.025;
+        if (weather === 'rain' || weather === 'snow') drain += 0.02;
+        this.warmth = Math.max(0, this.warmth - drain * step);
+      } else {
+        // Day slowly warms you back up.
+        this.warmth = Math.min(4, this.warmth + step * 0.05);
+      }
+    }
+    if (this.warmth <= 0 && !this.transition) {
+      this.transition = { kind: 'wake', t: 0, dur: 1.4, swapped: false };
+      this.emit('warmth-out');
+    }
+
+    // 7. Ambient life (birds by day, fireflies & Watchers at night)
+    this._updateAmbientLife(step, nearFire);
+    this._updateParticles(step);
+  }
+
+  _updateGlide(step, input) {
+    this.glide.t += step;
+    const k = Math.min(1, this.glide.t / this.glide.dur);
+    this.player.x = ((this.glide.sx + (this.glide.ex - this.glide.sx) * k) % 65536 + 65536) % 65536;
+    this.player.y = ((this.glide.sy + (this.glide.ey - this.glide.sy) * k) % 65536 + 65536) % 65536;
+    if (Math.random() < 0.6) {
+      this.particles.push({
+        x: this.player.x, y: this.player.y, vx: 0, vy: 0, life: 0, maxLife: 0.35, kind: 'wind', size: 2.2,
+      });
+    }
+    if (k >= 1) {
+      this.glide = null;
+      this._markVisited();
+      // Update facing from current stick/keyboard before checking buffered chained glide
+      if (Math.hypot(input.mx || 0, input.my || 0) > 0.12) {
+        const m = Math.hypot(input.mx, input.my);
+        this.player.fx = input.mx / m;
+        this.player.fy = input.my / m;
+      }
+      if (this.glideBuffer > 0 || input.actHeld) {
+        this.glideBuffer = 0;
+        this.performAction(true);
+      }
+    }
+  }
+
+  _updateMovement(step, input) {
     // 3. Movement from joystick/keyboard or tap-to-walk
     let mx = input.mx || 0;
     let my = input.my || 0;
@@ -592,10 +695,7 @@ export class Game {
       }
       if (this.performAction(true)) {
         this.actCooldown = 0.12;
-        if (this.glide) {
-          this._updateParticles(step);
-          return;
-        }
+        if (this.glide) return;
       }
     }
 
@@ -653,48 +753,6 @@ export class Game {
       this.idleSec += step;
       if (this.idleSec > 4.5) this.sitting = true;
     }
-
-    // 4. Collect nearby wisps -> permanent sky stars!
-    const wisp = this.world.nearestWisp(this.player.x, this.player.y);
-    if (wisp && wisp.dist < 0.95) {
-      this.world.collectedWisps.add(wisp.key);
-      if (this.stars < MAX_STARS) this.stars++;
-      this._burstParticles(wisp.x + 0.5, wisp.y + 0.5, 22, 'star');
-      this.emit('wisp-collected', { stars: this.stars, x: wisp.x, y: wisp.y });
-    }
-
-    // 5. Day/night clock (passes faster when sitting near a fire)
-    const nearFire = this.isNearWarmth();
-    const timeScale = (this.sitting && nearFire) ? 14 : 1;
-    const prevDay = this.dayTime;
-    this.dayTime = (this.dayTime + (step * timeScale) / DAY_DURATION_SEC) % 1;
-    if (this.dayTime < prevDay) this.dayCount++;
-
-    // 6. Warmth (gentle & forgiving for kids)
-    if (nearFire) {
-      this.warmth = Math.min(4, this.warmth + step * 0.95);
-    } else {
-      const night = this.nightAmount;
-      const flags = this.world.flagsAt(Math.floor(this.player.x), Math.floor(this.player.y));
-      const weather = this.currentWeather();
-      if (night > 0.35) {
-        let drain = 0.032 * night;
-        if (flags & MTF.COLD) drain += 0.025;
-        if (weather === 'rain' || weather === 'snow') drain += 0.02;
-        this.warmth = Math.max(0, this.warmth - drain * step);
-      } else {
-        // Day slowly warms you back up.
-        this.warmth = Math.min(4, this.warmth + step * 0.05);
-      }
-    }
-    if (this.warmth <= 0 && !this.transition) {
-      this.transition = { kind: 'wake', t: 0, dur: 1.4, swapped: false };
-      this.emit('warmth-out');
-    }
-
-    // 7. Ambient life (birds by day, fireflies & Watchers at night)
-    this._updateAmbientLife(step, nearFire);
-    this._updateParticles(step);
   }
 
   _markVisited() {
