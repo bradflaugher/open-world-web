@@ -357,11 +357,26 @@ window.addEventListener('blur', () => {
   stickKnob.style.transform = '';
 });
 
+function pauseForBackground() {
+  keys.clear();
+  actPointerHeld = false;
+  stick = null;
+  stickEl.hidden = true;
+  stickKnob.style.transform = '';
+  sound.suspend();
+}
+
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    keys.clear();
-    actPointerHeld = false;
+    pauseForBackground();
+  } else {
+    sound.resume();
   }
+});
+
+window.addEventListener('pagehide', pauseForBackground);
+window.addEventListener('pageshow', () => {
+  if (!document.hidden) sound.resume();
 });
 
 // Touch / pointer floating joystick & tap-to-walk on the canvas
