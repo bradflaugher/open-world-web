@@ -37,13 +37,18 @@ export class SoundEngine {
     this.master = null;
     this.droneOsc = null;
     this.droneGain = null;
+    this._suspended = false;
     this.timers = LOOP_PERIODS.map((p, i) => p * (0.25 + i * 0.2));
     this.stepIdx = [0, 2, 4, 1];
     this.currentBiome = BIOME.MEADOW;
   }
 
+  _isHidden() {
+    return typeof document !== 'undefined' && Boolean(document.hidden);
+  }
+
   unlock() {
-    if (!this.enabled) return;
+    if (!this.enabled || this._suspended || this._isHidden()) return;
     try {
       if (!this.ctx) {
         const AC = window.AudioContext || window.webkitAudioContext;
@@ -62,22 +67,70 @@ export class SoundEngine {
         this.droneOsc.connect(this.droneGain).connect(this.master);
         this.droneOsc.start();
       }
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      if (this.master) {
+        this.master.gain.setTargetAtTime(0.28, this.ctx.currentTime, 0.05);
+      }
+      if (this.ctx.state === 'suspended') {
+        Promise.resolve(this.ctx.resume()).catch(() => {});
+      }
     } catch {
       // AudioContext unavailable or blocked
     }
   }
 
+  suspend() {
+    this._suspended = true;
+    if (!this.ctx) return;
+    try {
+      if (this.master) {
+        const now = this.ctx.currentTime;
+        this.master.gain.cancelScheduledValues?.(now);
+        this.master.gain.setTargetAtTime(0.0001, now, 0.015);
+      }
+      if (this.ctx.state === 'running') {
+        Promise.resolve(this.ctx.suspend()).catch(() => {});
+      }
+    } catch {
+      // Ignore suspend errors
+    }
+  }
+
+  resume() {
+    this._suspended = false;
+    if (!this.enabled || this._isHidden() || !this.ctx) return;
+    try {
+      if (this.master) {
+        const now = this.ctx.currentTime;
+        this.master.gain.cancelScheduledValues?.(now);
+        this.master.gain.setTargetAtTime(0.28, now, 0.05);
+      }
+      if (this.ctx.state === 'suspended') {
+        Promise.resolve(this.ctx.resume()).catch(() => {});
+      }
+    } catch {
+      // Ignore resume errors
+    }
+  }
+
   setEnabled(on) {
     this.enabled = Boolean(on);
-    if (this.master && this.ctx) {
-      this.master.gain.setTargetAtTime(this.enabled ? 0.28 : 0.0001, this.ctx.currentTime, 0.08);
+    if (!this.enabled) {
+      if (this.master && this.ctx) {
+        this.master.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.03);
+      }
+      if (this.ctx && this.ctx.state === 'running') {
+        Promise.resolve(this.ctx.suspend()).catch(() => {});
+      }
+      return;
     }
-    if (this.enabled) this.unlock();
+    if (this.master && this.ctx) {
+      this.master.gain.setTargetAtTime(0.28, this.ctx.currentTime, 0.08);
+    }
+    this.unlock();
   }
 
   _note(freq, dur = 0.6, type = 'triangle', vol = 0.09, delay = 0) {
-    if (!this.enabled || !this.ctx || !this.master) return;
+    if (!this.enabled || this._suspended || this._isHidden() || !this.ctx || !this.master) return;
     try {
       const now = this.ctx.currentTime + delay;
       const osc = this.ctx.createOscillator();
@@ -96,7 +149,7 @@ export class SoundEngine {
   }
 
   update(dt, biome, litBeacons) {
-    if (!this.enabled || !this.ctx || this.ctx.state !== 'running') return;
+    if (!this.enabled || this._suspended || this._isHidden() || !this.ctx || this.ctx.state !== 'running') return;
     this.currentBiome = biome;
     const targetFreq = DRONES[biome] || 130.81;
     if (this.droneOsc) {
@@ -119,7 +172,7 @@ export class SoundEngine {
   }
 
   handleEvent(ev) {
-    if (!this.enabled) return;
+    if (!this.enabled || this._suspended || this._isHidden()) return;
     this.unlock();
     switch (ev.type) {
       case 'step':
