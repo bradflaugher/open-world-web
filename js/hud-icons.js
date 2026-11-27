@@ -204,6 +204,30 @@ const GRIDS = {
     '.kk......kk.',
     '............',
   ],
+  fullscreenOn: [
+    '............',
+    '.kkkk..kkkk.',
+    '.kllk..kllk.',
+    '.klk....klk.',
+    '.kk......kk.',
+    '.kk......kk.',
+    '.klk....klk.',
+    '.kllk..kllk.',
+    '.kkkk..kkkk.',
+    '............',
+  ],
+  fullscreenOff: [
+    '............',
+    '...kk..kk...',
+    '..klk..klk..',
+    '.kllk..kllk.',
+    '.kkkk..kkkk.',
+    '.kkkk..kkkk.',
+    '.kllk..kllk.',
+    '..klk..klk..',
+    '...kk..kk...',
+    '............',
+  ],
 };
 
 export function createPixelIcon(name, sizePx = 16) {
