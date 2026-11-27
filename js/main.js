@@ -260,11 +260,10 @@ $('btn-sound').addEventListener('click', () => {
 });
 
 function canFullscreen() {
-  const standalone =
-    window.matchMedia?.('(display-mode: standalone)').matches ||
+  const alreadyNativeFs =
     window.matchMedia?.('(display-mode: fullscreen)').matches ||
     window.navigator?.standalone === true;
-  if (standalone) return false;
+  if (alreadyNativeFs) return false;
   const el = document.documentElement;
   if (!el.requestFullscreen && !el.webkitRequestFullscreen) return false;
   if (typeof document.fullscreenEnabled === 'boolean') return document.fullscreenEnabled;
@@ -278,8 +277,10 @@ function isFullscreen() {
 
 function syncFullscreen() {
   const btn = $('btn-fullscreen');
+  const titleBtn = $('btn-fullscreen-title');
   const supported = canFullscreen();
   btn.hidden = !supported;
+  if (titleBtn) titleBtn.hidden = !supported;
   if (!supported) return;
   const active = isFullscreen();
   btn.replaceChildren(createPixelIcon(active ? 'fullscreenOff' : 'fullscreenOn', 18));
@@ -287,6 +288,10 @@ function syncFullscreen() {
   btn.setAttribute('aria-pressed', String(active));
   btn.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
   btn.title = active ? 'Exit fullscreen (F)' : 'Fullscreen (F)';
+  if (titleBtn) {
+    titleBtn.textContent = active ? 'Exit fullscreen' : 'Fullscreen';
+    titleBtn.setAttribute('aria-pressed', String(active));
+  }
 }
 
 function toggleFullscreen() {
@@ -297,8 +302,13 @@ function toggleFullscreen() {
       Promise.resolve(exit?.call(document)).catch(() => {});
     } else {
       const el = document.documentElement;
-      const req = el.requestFullscreen || el.webkitRequestFullscreen;
-      Promise.resolve(req?.call(el)).catch(() => {});
+      if (el.requestFullscreen) {
+        Promise.resolve(el.requestFullscreen({ navigationUI: 'hide' }))
+          .catch(() => el.requestFullscreen())
+          .catch(() => {});
+      } else if (el.webkitRequestFullscreen) {
+        Promise.resolve(el.webkitRequestFullscreen()).catch(() => {});
+      }
     }
   } catch {
     // browser declined fullscreen
@@ -306,14 +316,14 @@ function toggleFullscreen() {
 }
 
 $('btn-fullscreen').addEventListener('click', toggleFullscreen);
-document.addEventListener('fullscreenchange', () => {
+$('btn-fullscreen-title')?.addEventListener('click', toggleFullscreen);
+const onFsChange = () => {
   syncFullscreen();
   handleResize();
-});
-document.addEventListener('webkitfullscreenchange', () => {
-  syncFullscreen();
-  handleResize();
-});
+  setTimeout(handleResize, 150);
+};
+document.addEventListener('fullscreenchange', onFsChange);
+document.addEventListener('webkitfullscreenchange', onFsChange);
 syncFullscreen();
 $('btn-menu').addEventListener('click', () => {
   saveGame(game);
