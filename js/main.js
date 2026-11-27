@@ -258,6 +258,63 @@ $('btn-sound').addEventListener('click', () => {
   }
   updateHud();
 });
+
+function canFullscreen() {
+  const standalone =
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    window.matchMedia?.('(display-mode: fullscreen)').matches ||
+    window.navigator?.standalone === true;
+  if (standalone) return false;
+  const el = document.documentElement;
+  if (!el.requestFullscreen && !el.webkitRequestFullscreen) return false;
+  if (typeof document.fullscreenEnabled === 'boolean') return document.fullscreenEnabled;
+  if (typeof document.webkitFullscreenEnabled === 'boolean') return document.webkitFullscreenEnabled;
+  return true;
+}
+
+function isFullscreen() {
+  return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function syncFullscreen() {
+  const btn = $('btn-fullscreen');
+  const supported = canFullscreen();
+  btn.hidden = !supported;
+  if (!supported) return;
+  const active = isFullscreen();
+  btn.replaceChildren(createPixelIcon(active ? 'fullscreenOff' : 'fullscreenOn', 18));
+  btn.classList.toggle('on', active);
+  btn.setAttribute('aria-pressed', String(active));
+  btn.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
+  btn.title = active ? 'Exit fullscreen (F)' : 'Fullscreen (F)';
+}
+
+function toggleFullscreen() {
+  if (!canFullscreen()) return;
+  try {
+    if (isFullscreen()) {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      Promise.resolve(exit?.call(document)).catch(() => {});
+    } else {
+      const el = document.documentElement;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen;
+      Promise.resolve(req?.call(el)).catch(() => {});
+    }
+  } catch {
+    // browser declined fullscreen
+  }
+}
+
+$('btn-fullscreen').addEventListener('click', toggleFullscreen);
+document.addEventListener('fullscreenchange', () => {
+  syncFullscreen();
+  handleResize();
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  syncFullscreen();
+  handleResize();
+});
+syncFullscreen();
 $('btn-menu').addEventListener('click', () => {
   saveGame(game);
   openTitle();
@@ -324,6 +381,11 @@ window.addEventListener('keydown', (e) => {
   if (k === 'p') {
     game.palette = game.palette === 'dmg' ? 'color' : 'dmg';
     saveGame(game);
+    return;
+  }
+  if (k === 'f') {
+    e.preventDefault();
+    toggleFullscreen();
     return;
   }
   if (!mapModal.hidden) return;
