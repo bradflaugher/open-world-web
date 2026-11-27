@@ -1,0 +1,32 @@
+version: 2
+
+# open-world-web ships zero-dependency static files to Cloudflare Pages; npm
+# only holds ESLint for CI.
+#
+# Policy: patch vulnerabilities fast, refresh everything else rarely.
+# - Version updates: one combined PR per quarter across Actions and npm, with
+#   a 30-day cooldown so broken or hijacked releases are caught and pulled first.
+
+multi-ecosystem-groups:
+  quarterly-refresh:
+    schedule:
+      interval: quarterly
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    patterns: ['*']
+    multi-ecosystem-group: quarterly-refresh
+    cooldown:
+      default-days: 30
+
+  - package-ecosystem: npm
+    directory: /
+    patterns: ['*']
+    multi-ecosystem-group: quarterly-refresh
+    cooldown:
+      default-days: 30
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns: ['*']
